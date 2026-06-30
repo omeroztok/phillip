@@ -22,10 +22,14 @@ export function Message({ message, tail }: { message: Msg; tail: boolean }) {
     );
   }
   return (
-    <m.div className={`msg ${message.role}`} variants={variants}>
+    <m.div className={`msg ${message.role}${tail ? " has-tail" : ""}`} variants={variants}>
       <div className="msg-bubble-wrap">
-        <div className={message.error ? "msg-bubble error" : "msg-bubble"}>{message.text}</div>
-        {tail ? <BubbleTail className="msg-tail" /> : null}
+        {/* Tail lives inside the bubble (like the simulator) so it hangs below
+            and insets from the corner. */}
+        <div className={message.error ? "msg-bubble error" : "msg-bubble"}>
+          {message.text}
+          {tail ? <BubbleTail className="msg-tail" /> : null}
+        </div>
       </div>
     </m.div>
   );

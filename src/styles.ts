@@ -73,16 +73,22 @@ export const styles = `
 /* Tabular figures for any value that changes in place (no width jitter). */
 .tnum { font-variant-numeric: tabular-nums; }
 
-/* --- vignette --- */
-/* Much stronger now: a deep, focused darkening anchored to the bottom-right
-   that fades to clear by ~mid-screen so the rest of the page stays visible. */
+/* --- vignette (frosted corner backdrop) --- */
+/* Blurs AND gently dims the page behind the conversation, feathered to the
+   bottom-right corner with a radial mask. The page goes softly out of focus
+   rather than turning muddy/brown — a clean, premium spotlight. */
 .vignette {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: var(--p-z-vignette);
-  background: radial-gradient(140% 140% at 100% 100%,
-    rgba(5,5,9,.82) 0%, rgba(5,5,9,.6) 18%, rgba(7,7,11,.34) 38%, rgba(8,8,12,.1) 52%, rgba(8,8,12,0) 64%);
+  background: rgba(8,8,12,.22);
+  backdrop-filter: blur(18px) saturate(1.05);
+  -webkit-backdrop-filter: blur(18px) saturate(1.05);
+  -webkit-mask-image: radial-gradient(120% 120% at 100% 100%,
+    #000 0%, #000 28%, rgba(0,0,0,.55) 44%, transparent 58%);
+  mask-image: radial-gradient(120% 120% at 100% 100%,
+    #000 0%, #000 28%, rgba(0,0,0,.55) 44%, transparent 58%);
 }
 
 /* --- resting bubble (closed) --- */
@@ -152,29 +158,33 @@ export const styles = `
   min-height: 0;
   overflow-y: auto;
   scroll-behavior: smooth;
-  padding-top: 32px;
-  /* Older messages dissolve into the page at the top — a long fade over the
-     top quarter, matching the repo's transcript mask. */
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 24%);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 24%);
+  padding-top: 16px;
+  /* Older messages dissolve into the page at the top — fade over the top
+     quarter, matching the repo's transcript mask exactly. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 25%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 25%);
 }
 .stage-footer { pointer-events: auto; margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 
 /* --- transcript --- */
-.convo { display: flex; flex-direction: column; gap: 5px; }
+/* Tight within a run; the gap between runs comes from the tail row's reserved
+   space (.has-tail), mirroring iMessage's grouping rhythm. */
+.convo { display: flex; flex-direction: column; gap: 2px; }
 
-/* --- messages (frameless iMessage bubbles) --- */
+/* --- messages (frameless iMessage bubbles, ported 1:1 from the simulator) --- */
 .msg { display: flex; max-width: 100%; }
 .msg.lead { justify-content: flex-end; }
 .msg.system { justify-content: center; }
-.msg-bubble-wrap { position: relative; max-width: 82%; }
+/* Tail hangs ~6.5px below the bubble; reserve that space + the run gap. */
+.msg.has-tail { margin-bottom: 7px; }
+.msg-bubble-wrap { position: relative; max-width: 70%; display: flex; }
 .msg-bubble {
   position: relative;
-  padding: 8px 13px;
+  padding: 8.5px 11.5px;
   border-radius: var(--p-bubble-radius);
   font-size: 16px;
-  line-height: 1.32;
-  letter-spacing: -.01em;
+  line-height: 1.295;
+  letter-spacing: -.005em;
   white-space: pre-wrap;
   word-wrap: break-word;
   text-wrap: pretty;
@@ -182,25 +192,25 @@ export const styles = `
 }
 .msg.phillip .msg-bubble { background: var(--p-them-bg); color: var(--p-them-fg); }
 /* The sent bubble stays brand-black; a faint light edge keeps its silhouette
-   readable where it sits on the darkest part of the vignette. */
+   readable where it sits on the darkest part of the backdrop. */
 .msg.lead .msg-bubble {
   background: var(--p-accent); color: var(--p-accent-fg);
   box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 6px 16px -8px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.08);
 }
 
-/* Self-contained SVG tail (only on the last bubble of a run). currentColor is
-   set to the bubble color; them is mirrored to hook on the left. The repo
-   lifts the tail slightly off the bottom (~1.73cqw). */
-.msg-tail { position: absolute; bottom: 5px; width: 16px; height: 17px; }
-.msg.phillip .msg-tail { left: -4px; transform: scaleX(-1); color: var(--p-them-bg); }
-.msg.lead .msg-tail { right: -4px; color: var(--p-accent); }
+/* Self-contained SVG tail (last bubble of a run only). Rendered INSIDE the
+   bubble: hangs below (bottom:-6.5px) and insets 6.5px from the edge, exactly
+   like the simulator. currentColor = bubble color; them is mirrored. */
+.msg-tail { position: absolute; bottom: -6.5px; width: 16px; height: 17px; }
+.msg.phillip .msg-tail { left: 6.5px; transform: scaleX(-1); color: var(--p-them-bg); }
+.msg.lead .msg-tail { right: 6.5px; color: var(--p-accent); }
 
 .msg.system .msg-bubble {
   background: transparent; color: var(--p-muted); font-size: 12px;
   text-align: center; box-shadow: none;
 }
 .msg-bubble.error { background: #fee2e2; color: #b91c1c; }
-.msg.error .msg-tail, .msg .msg-bubble.error + .msg-tail { color: #fee2e2; }
+.msg-bubble.error .msg-tail { color: #fee2e2; }
 
 /* --- typing --- */
 .typing {
