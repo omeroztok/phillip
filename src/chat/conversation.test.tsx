@@ -24,7 +24,7 @@ describe("conversation flow", () => {
 
     // Greeting + the three reaction quick replies appear.
     await waitFor(() => {
-      expect(shadow.querySelector(".panel")).toBeTruthy();
+      expect(shadow.querySelector(".stage")).toBeTruthy();
       expect(shadow.textContent ?? "").toMatch(/honest take/i);
     });
 

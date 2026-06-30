@@ -7,9 +7,11 @@
 // library (see src/overlay/motion.ts) so it stays interruptible. CSS keeps only
 // genuinely ambient loops (the indeterminate spinner) plus static styling.
 //
-// Radius note: radii are concentric — a nested element's radius is the parent's
-// minus the gap between them (outer − padding), so corners stay visually
-// parallel. The panel is 22px; its 14px-inset header controls land near 8px.
+// Layout note: there is no chat "box". The conversation is a FRAMELESS stack of
+// iMessage bubbles floating over the bottom-right vignette. Bubbles carry their
+// own soft shadow so they read on any backdrop; the tail is a self-contained
+// SVG (BubbleTail) tinted to the bubble color, so it works without a solid
+// surface behind it.
 
 export const styles = `
 :host { all: initial; }
@@ -37,23 +39,21 @@ export const styles = `
   --p-them-bg: #e9e9eb;
   --p-them-fg: #1c1c1e;
   --p-bubble-radius: 19px;
-  --p-bubble-tail: 7px;
 
-  /* Frosted surfaces. */
-  --p-glass: rgba(255,255,255,.72);
-  --p-glass-blur: 20px;
+  /* Frosted surfaces (composer, chips, sub-flow cards). */
+  --p-glass: rgba(255,255,255,.7);
+  --p-glass-blur: 22px;
+  --p-glass-ring: inset 0 0 0 1px rgba(255,255,255,.55);
 
-  --p-radius: 22px;
-  /* Layered, soft elevation reads more premium than one hard drop shadow. */
-  --p-shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px -8px rgba(0,0,0,.18), 0 24px 48px -16px rgba(0,0,0,.22);
-  --p-shadow-sm: 0 1px 2px rgba(0,0,0,.06), 0 4px 12px -4px rgba(0,0,0,.16);
+  /* Soft lift so bubbles + glass read over the dimmed vignette. */
+  --p-shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 24px -8px rgba(0,0,0,.22), 0 24px 48px -16px rgba(0,0,0,.28);
+  --p-shadow-sm: 0 1px 2px rgba(0,0,0,.1), 0 6px 16px -8px rgba(0,0,0,.28);
   --p-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 
   /* Stacking order, all within the single max z-index host. */
   --p-z-vignette: 1;
   --p-z-bubble: 20;
-  --p-z-panel: 30;
-  --p-z-notif: 40;
+  --p-z-stage: 30;
 
   font-family: var(--p-font);
   color: var(--p-fg);
@@ -74,76 +74,11 @@ export const styles = `
   inset: 0;
   pointer-events: none;
   z-index: var(--p-z-vignette);
-  background: radial-gradient(120% 120% at 100% 100%,
-    rgba(15,15,20,.28) 0%, rgba(15,15,20,.12) 26%, rgba(15,15,20,0) 58%);
+  background: radial-gradient(125% 125% at 100% 100%,
+    rgba(12,12,18,.34) 0%, rgba(12,12,18,.16) 30%, rgba(12,12,18,0) 62%);
 }
 
-/* --- notifications --- */
-.notif-stack {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  z-index: var(--p-z-notif);
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 10px;
-  pointer-events: none;
-  width: 340px;
-  max-width: calc(100vw - 32px);
-}
-.notif-card {
-  pointer-events: auto;
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-  padding: 12px 12px 12px 13px;
-  background: var(--p-glass);
-  backdrop-filter: blur(var(--p-glass-blur)) saturate(1.6);
-  -webkit-backdrop-filter: blur(var(--p-glass-blur)) saturate(1.6);
-  border-radius: 18px;
-  box-shadow: var(--p-shadow), inset 0 0 0 1px rgba(255,255,255,.5);
-  will-change: transform, opacity, filter;
-}
-.notif-body {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  border: none;
-  background: transparent;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  color: var(--p-fg);
-  min-width: 0;
-}
-.notif-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.notif-name { font-weight: 650; font-size: 13.5px; letter-spacing: -.01em; }
-.notif-preview {
-  font-size: 13px;
-  color: var(--p-muted);
-  text-wrap: pretty;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.notif-dismiss {
-  flex: none;
-  align-self: flex-start;
-  border: none;
-  background: rgba(0,0,0,.05);
-  color: var(--p-muted);
-  width: 22px; height: 22px;
-  border-radius: 50%;
-  display: grid; place-items: center;
-  cursor: pointer;
-}
-.notif-dismiss:hover { background: rgba(0,0,0,.1); color: var(--p-fg); }
-
-/* --- bubble --- */
+/* --- resting bubble (closed) --- */
 .bubble {
   position: fixed;
   right: 20px;
@@ -173,116 +108,84 @@ export const styles = `
   box-shadow: 0 1px 3px rgba(0,0,0,.25);
 }
 
-/* --- panel --- */
-.panel {
+/* --- frameless stage (open) --- */
+.stage {
   position: fixed;
   right: 20px;
   bottom: 20px;
-  z-index: var(--p-z-panel);
-  width: 376px;
-  max-width: calc(100vw - 32px);
-  height: 564px;
-  max-height: calc(100vh - 40px);
-  background: var(--p-bg);
-  border-radius: var(--p-radius);
-  box-shadow: var(--p-shadow);
+  z-index: var(--p-z-stage);
+  width: min(384px, calc(100vw - 32px));
+  max-height: min(78vh, 660px);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  justify-content: flex-end;
   transform-origin: bottom right;
   will-change: transform, opacity, filter;
+  /* Empty regions stay click-through; interactive children opt back in. */
+  pointer-events: none;
 }
-
-.panel-header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 14px 14px 13px;
+.stage-close {
+  pointer-events: auto;
+  align-self: flex-end;
+  border: none;
+  cursor: pointer;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  margin-bottom: 8px;
+  color: var(--p-fg);
   background: var(--p-glass);
   backdrop-filter: blur(var(--p-glass-blur)) saturate(1.6);
   -webkit-backdrop-filter: blur(var(--p-glass-blur)) saturate(1.6);
-  /* Shadow, not a hard 1px border — softer separation (article). */
-  box-shadow: 0 1px 0 rgba(0,0,0,.04), 0 10px 18px -14px rgba(0,0,0,.25);
+  box-shadow: var(--p-shadow-sm), var(--p-glass-ring);
+  display: grid; place-items: center;
 }
-.panel-id { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
-.panel-name { font-weight: 700; font-size: 15px; letter-spacing: -.01em; text-wrap: balance; }
-.panel-title { font-size: 12px; color: var(--p-muted); text-wrap: balance; }
-.panel-status { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--p-muted); margin-left: auto; }
-.panel-status .dot { width: 7px; height: 7px; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,.18); }
-.panel-close {
-  border: none; background: transparent; cursor: pointer;
-  width: 30px; height: 30px; border-radius: 9px; color: var(--p-muted);
-  display: grid; place-items: center; flex: none;
-}
-.panel-close:hover { background: rgba(0,0,0,.05); color: var(--p-fg); }
-
-.panel-body {
-  flex: 1;
+.stage-scroll {
+  pointer-events: auto;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
-  padding: 14px;
-  background: var(--p-bg);
   scroll-behavior: smooth;
+  padding-top: 28px;
+  /* Older messages dissolve into the page at the top instead of a hard cut. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 60px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 60px);
 }
-.convo { display: flex; flex-direction: column; gap: 10px; }
-.panel-placeholder { color: var(--p-muted); font-size: 13px; margin: auto; text-align: center; }
+.stage-footer { pointer-events: auto; margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 
-/* --- avatar --- */
-.avatar {
-  border-radius: 50%; object-fit: cover; flex: none; display: block;
-  /* Inset outline gives photos depth against the surface (article). */
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
-}
-.avatar.sm { width: 38px; height: 38px; }
-.avatar.xs { width: 26px; height: 26px; }
+/* --- transcript --- */
+.convo { display: flex; flex-direction: column; gap: 5px; }
 
-/* --- messages (iMessage shape) --- */
-.msg { display: flex; gap: 8px; align-items: flex-end; max-width: 100%; }
-.msg.lead { flex-direction: row-reverse; }
-.msg-bubble-wrap { position: relative; max-width: 78%; display: flex; }
+/* --- messages (frameless iMessage bubbles) --- */
+.msg { display: flex; max-width: 100%; }
+.msg.lead { justify-content: flex-end; }
+.msg.system { justify-content: center; }
+.msg-bubble-wrap { position: relative; max-width: 82%; }
 .msg-bubble {
   position: relative;
-  padding: 8px 13px;
+  padding: 7px 13px;
   border-radius: var(--p-bubble-radius);
   font-size: 14px;
   line-height: 1.4;
   white-space: pre-wrap;
   word-wrap: break-word;
   text-wrap: pretty;
+  box-shadow: 0 1px 2px rgba(0,0,0,.12), 0 6px 16px -8px rgba(0,0,0,.3);
 }
-/* them (Phillip) — gray, tail at bottom-left. The ::after carves the curve
-   using the surface color; both pseudos sit to the left of the bubble box so
-   they never cover text. */
 .msg.phillip .msg-bubble { background: var(--p-them-bg); color: var(--p-them-fg); }
-.msg.phillip .msg-bubble::before {
-  content: ""; position: absolute; bottom: 0; left: calc(var(--p-bubble-tail) * -1);
-  width: 14px; height: 19px; background: var(--p-them-bg);
-  border-bottom-right-radius: 15px;
-}
-.msg.phillip .msg-bubble::after {
-  content: ""; position: absolute; bottom: 0; left: calc(var(--p-bubble-tail) * -1 - 7px);
-  width: 12px; height: 19px; background: var(--p-bg);
-  border-bottom-right-radius: 12px;
-}
-/* you (lead) — accent fill, tail at bottom-right. */
 .msg.lead .msg-bubble { background: var(--p-accent); color: var(--p-accent-fg); }
-.msg.lead .msg-bubble::before {
-  content: ""; position: absolute; bottom: 0; right: calc(var(--p-bubble-tail) * -1);
-  width: 14px; height: 19px; background: var(--p-accent);
-  border-bottom-left-radius: 15px;
+
+/* Self-contained SVG tail (only on the last bubble of a run). currentColor is
+   set to the bubble color; them is mirrored to hook on the left. */
+.msg-tail { position: absolute; bottom: 0; width: 16px; height: 17px; }
+.msg.phillip .msg-tail { left: -4px; transform: scaleX(-1); color: var(--p-them-bg); }
+.msg.lead .msg-tail { right: -4px; color: var(--p-accent); }
+
+.msg.system .msg-bubble {
+  background: transparent; color: var(--p-muted); font-size: 12px;
+  text-align: center; box-shadow: none;
 }
-.msg.lead .msg-bubble::after {
-  content: ""; position: absolute; bottom: 0; right: calc(var(--p-bubble-tail) * -1 - 7px);
-  width: 12px; height: 19px; background: var(--p-bg);
-  border-bottom-left-radius: 12px;
-}
-.msg.system { justify-content: center; }
-.msg.system .msg-bubble { background: transparent; color: var(--p-muted); font-size: 12px; text-align: center; }
-.msg.system .msg-bubble::before, .msg.system .msg-bubble::after { display: none; }
 .msg-bubble.error { background: #fee2e2; color: #b91c1c; }
-.msg-bubble.error::before { background: #fee2e2; }
+.msg.error .msg-tail, .msg .msg-bubble.error + .msg-tail { color: #fee2e2; }
 
 /* Reaction badge — visual slot, ready to populate later. */
 .msg-reaction {
@@ -300,55 +203,71 @@ export const styles = `
 
 /* --- typing --- */
 .typing {
-  display: inline-flex; gap: 4px; padding: 12px 14px;
+  display: inline-flex; gap: 4px; padding: 11px 14px;
   background: var(--p-them-bg); border-radius: var(--p-bubble-radius);
+  box-shadow: 0 1px 2px rgba(0,0,0,.12), 0 6px 16px -8px rgba(0,0,0,.3);
 }
 .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--p-muted); display: block; }
 
-/* --- quick replies --- */
-.quick-replies { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 14px 10px; }
+/* --- quick replies (floating glass chips) --- */
+.quick-replies { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
 .qr {
-  border: 1px solid var(--p-line); background: #fff; color: var(--p-fg);
+  border: none; color: var(--p-fg);
+  background: var(--p-glass);
+  backdrop-filter: blur(var(--p-glass-blur)) saturate(1.6);
+  -webkit-backdrop-filter: blur(var(--p-glass-blur)) saturate(1.6);
   border-radius: 999px; padding: 8px 14px; font-size: 13px; cursor: pointer;
-  font-family: inherit; transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
+  font-family: inherit; box-shadow: var(--p-shadow-sm), var(--p-glass-ring);
+  transition: box-shadow .12s ease;
 }
-.qr:hover { background: var(--p-soft); border-color: #d4d4d8; box-shadow: var(--p-shadow-sm); }
+.qr:hover { box-shadow: var(--p-shadow), var(--p-glass-ring); }
 .qr:disabled { opacity: .5; cursor: default; }
 
-/* --- composer --- */
+/* --- composer (single frameless glass pill) --- */
 .composer {
-  display: flex; gap: 8px; align-items: center;
-  padding: 11px 12px; border-top: 1px solid var(--p-line);
-  background: var(--p-bg);
+  display: flex; gap: 6px; align-items: center;
+  padding: 6px 6px 6px 16px;
+  background: var(--p-glass);
+  backdrop-filter: blur(var(--p-glass-blur)) saturate(1.6);
+  -webkit-backdrop-filter: blur(var(--p-glass-blur)) saturate(1.6);
+  border-radius: 999px;
+  box-shadow: var(--p-shadow-sm), var(--p-glass-ring);
 }
 .composer input {
-  flex: 1; border: 1px solid var(--p-line); border-radius: 999px;
-  padding: 10px 15px; font-size: 14px; font-family: inherit; outline: none; color: var(--p-fg);
-  background: #fff; transition: border-color .14s ease, box-shadow .14s ease;
+  flex: 1; border: none; background: transparent; outline: none;
+  padding: 6px 0; font-size: 14px; font-family: inherit; color: var(--p-fg);
 }
-.composer input:focus { border-color: #c7c7cd; box-shadow: 0 0 0 4px rgba(0,0,0,.04); }
+.composer input::placeholder { color: var(--p-muted); }
 .composer button {
-  border: none; border-radius: 50%; width: 38px; height: 38px; flex: none;
+  border: none; border-radius: 50%; width: 36px; height: 36px; flex: none;
   background: var(--p-accent); color: var(--p-accent-fg); cursor: pointer;
   display: grid; place-items: center;
   transition: opacity .14s ease, transform .14s ease, filter .14s ease;
 }
-.composer button:disabled { opacity: .35; cursor: default; filter: blur(.2px); transform: scale(.94); }
+.composer button:disabled { opacity: .35; cursor: default; filter: blur(.2px); transform: scale(.92); }
 
-/* --- iteration panel --- */
-.iteration { border-top: 1px solid var(--p-line); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+/* --- sub-flow glass card (iteration / checkout / escalation / setup) --- */
+.stage-card {
+  background: var(--p-glass);
+  backdrop-filter: blur(var(--p-glass-blur)) saturate(1.6);
+  -webkit-backdrop-filter: blur(var(--p-glass-blur)) saturate(1.6);
+  border-radius: 20px;
+  box-shadow: var(--p-shadow), var(--p-glass-ring);
+}
+.iteration { padding: 13px 15px; display: flex; flex-direction: column; gap: 10px; }
 .iter-label { font-size: 12px; color: var(--p-muted); font-weight: 600; }
 .iter-options { display: flex; flex-wrap: wrap; gap: 7px; }
 .iter-chip {
-  border: 1px solid var(--p-line); background: #fff; border-radius: 999px;
+  border: 1px solid rgba(0,0,0,.08); background: rgba(255,255,255,.6); border-radius: 999px;
   padding: 7px 13px; font-size: 13px; cursor: pointer; font-family: inherit;
   transition: background .12s ease, border-color .12s ease;
 }
-.iter-chip:hover { background: var(--p-soft); }
+.iter-chip:hover { background: #fff; }
 .iter-chip.selected { background: var(--p-accent); color: var(--p-accent-fg); border-color: var(--p-accent); }
 .iter-text {
-  border: 1px solid var(--p-line); border-radius: 14px; padding: 10px 13px;
-  font-size: 14px; font-family: inherit; resize: none; min-height: 60px; outline: none; color: var(--p-fg);
+  border: 1px solid rgba(0,0,0,.1); border-radius: 14px; padding: 10px 13px;
+  font-size: 14px; font-family: inherit; resize: none; min-height: 60px; outline: none;
+  color: var(--p-fg); background: rgba(255,255,255,.7);
   transition: border-color .14s ease, box-shadow .14s ease;
 }
 .iter-text:focus { border-color: #c7c7cd; box-shadow: 0 0 0 4px rgba(0,0,0,.04); }
@@ -369,13 +288,17 @@ export const styles = `
 @keyframes phillip-spin { to { transform: rotate(360deg); } }
 
 .notice {
-  background: var(--p-soft); border-radius: 14px; padding: 10px 13px;
+  background: rgba(255,255,255,.6); border-radius: 14px; padding: 10px 13px;
   font-size: 13px; color: var(--p-fg); text-wrap: pretty;
 }
 .notice a { color: var(--p-pop); }
 
-/* --- stub panels (escalation / checkout / setup) --- */
-.composer.bare { border-top: none; padding: 0; }
+/* --- sub-flow extras --- */
+.composer.bare {
+  background: rgba(255,255,255,.7);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.1);
+  padding: 5px 5px 5px 15px;
+}
 .checkout-includes {
   margin: 0; padding-left: 18px; color: var(--p-fg); font-size: 13px;
   display: flex; flex-direction: column; gap: 4px;
@@ -389,6 +312,6 @@ export const styles = `
    reduced-motion via MotionConfig at the root. */
 @media (prefers-reduced-motion: reduce) {
   .spinner { animation: none; }
-  .panel, .notif-card { will-change: auto; }
+  .stage { will-change: auto; }
 }
 `;

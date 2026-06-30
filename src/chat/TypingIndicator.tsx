@@ -1,6 +1,5 @@
 import { type Variants, m } from "motion/react";
 import type { Persona } from "../types/boot";
-import { Avatar } from "./Avatar";
 
 // Three dots breathing in sequence. A genuine ambient loop, so it stays as a
 // motion repeat rather than a one-shot — interruptible and reduced-motion aware
@@ -18,10 +17,11 @@ const dot: Variants = {
   }),
 };
 
+// A them-side bubble with the tail, matching a Phillip message that's about to
+// arrive. No avatar (frameless, like the bubbles).
 export function TypingIndicator({ persona }: { persona: Persona }) {
   return (
     <div className="msg phillip">
-      <Avatar persona={persona} size="xs" />
       <div className="typing" aria-label={`${persona.name} is typing`}>
         {[0, 1, 2].map((i) => (
           <m.span key={i} custom={i} variants={dot} animate="animate" />

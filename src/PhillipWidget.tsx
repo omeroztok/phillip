@@ -4,8 +4,8 @@ import { Tracker } from "./analytics/tracker";
 import { Bubble } from "./chat/Bubble";
 import { Composer } from "./chat/Composer";
 import { Conversation } from "./chat/Conversation";
-import { Panel } from "./chat/Panel";
 import { QuickReplies } from "./chat/QuickReplies";
+import { Stage } from "./chat/Stage";
 import { type ControlEvent, useConversation } from "./chat/useConversation";
 import { PhillipProvider } from "./core/PhillipProvider";
 import type { RuntimeConfig } from "./core/config";
@@ -21,10 +21,7 @@ import {
   useIteration,
 } from "./iteration";
 import { log } from "./lib/log";
-import { NotificationStack } from "./overlay/NotificationStack";
 import { Vignette } from "./overlay/Vignette";
-import { composePreview, previewTitle } from "./overlay/preview";
-import { useNotifications } from "./overlay/useNotifications";
 import {
   CheckoutPanel,
   EscalationPanel,
@@ -86,13 +83,10 @@ function Ready({
   const [checkingOut, setCheckingOut] = useState(false);
   const openTriggerRef = useRef<PingReason | "manual">("manual");
   const openedRef = useRef(false);
-  const notifications = useNotifications();
 
-  // Opening the conversation — from a notification click or the resting bubble.
-  // Clears any live notification + vignette so they don't sit behind the panel.
+  // Opening the floating conversation — from a ping or the resting bubble.
   const openConversation = (trigger: PingReason | "manual") => {
     openTriggerRef.current = trigger;
-    notifications.clear();
     setOpen(true);
   };
 
@@ -191,19 +185,16 @@ function Ready({
   };
 
   useEffect(() => {
-    // On ping, surface a notification over the vignette rather than forcing the
-    // panel open — the lead chooses to engage by clicking it (or the bubble).
+    // On ping, the floating conversation opens and Phillip's messages pop in
+    // over the vignette — the messages themselves are the proactive nudge.
+    // (setOpen / refs are stable, so this effect only depends on `tracker`.)
     tracker.callbacks.onPing = (reason) => {
       openTriggerRef.current = reason;
-      notifications.push(
-        reason,
-        previewTitle(config.persona),
-        composePreview(reason, config.persona),
-      );
+      setOpen(true);
     };
     tracker.start();
     return () => tracker.stop();
-  }, [tracker, notifications.push, config.persona]);
+  }, [tracker]);
 
   useEffect(() => {
     if (!open || openedRef.current) return;
@@ -220,27 +211,37 @@ function Ready({
   let footer: ReactNode;
   if (flow === "iteration") {
     footer = (
-      <IterationPanel
-        busy={iteration.busy}
-        onSubmit={onIterationSubmit}
-        onCancel={() => setFlow("chat")}
-      />
+      <div className="stage-card">
+        <IterationPanel
+          busy={iteration.busy}
+          onSubmit={onIterationSubmit}
+          onCancel={() => setFlow("chat")}
+        />
+      </div>
     );
   } else if (flow === "escalation") {
     footer = (
-      <EscalationPanel busy={escalating} onSubmit={onEscalate} onCancel={() => setFlow("chat")} />
+      <div className="stage-card">
+        <EscalationPanel busy={escalating} onSubmit={onEscalate} onCancel={() => setFlow("chat")} />
+      </div>
     );
   } else if (flow === "checkout") {
     footer = (
-      <CheckoutPanel
-        offer={config.offer}
-        busy={checkingOut}
-        onPay={onPay}
-        onCancel={() => setFlow("chat")}
-      />
+      <div className="stage-card">
+        <CheckoutPanel
+          offer={config.offer}
+          busy={checkingOut}
+          onPay={onPay}
+          onCancel={() => setFlow("chat")}
+        />
+      </div>
     );
   } else if (flow === "setup") {
-    footer = <SetupPanel onComplete={onGoLive} />;
+    footer = (
+      <div className="stage-card">
+        <SetupPanel onComplete={onGoLive} />
+      </div>
+    );
   } else {
     footer = (
       <>
@@ -261,33 +262,21 @@ function Ready({
           bundle into the drop-in. reducedMotion="user" honors the OS setting. */}
       <LazyMotion features={domAnimation} strict>
         <MotionConfig reducedMotion="user">
-          {/* The vignette + notifications only exist while a ping is live and
-              the panel is closed; they frame and surface the proactive nudge. */}
-          <AnimatePresence>
-            {!open && notifications.notifications.length > 0 ? <Vignette key="vignette" /> : null}
-          </AnimatePresence>
-          {!open ? (
-            <NotificationStack
-              notifications={notifications.notifications}
-              persona={config.persona}
-              onOpen={() => openConversation(openTriggerRef.current)}
-              onDismiss={notifications.dismiss}
-              onPause={notifications.pause}
-              onResume={notifications.resume}
-            />
-          ) : null}
-          {/* Two independent presences so the panel can play its exit while the
-              bubble fades back in — both are fixed to the same corner. */}
+          {/* The vignette darkens the corner whenever the conversation is open,
+              so the frameless bubbles always have a backdrop to read against. */}
+          <AnimatePresence>{open ? <Vignette key="vignette" /> : null}</AnimatePresence>
+          {/* Frameless transcript floating over the vignette ⇄ resting bubble,
+              in independent presences so each can play its own exit. */}
           <AnimatePresence>
             {open ? (
-              <Panel
-                key="panel"
+              <Stage
+                key="stage"
                 persona={config.persona}
                 onClose={() => setOpen(false)}
                 footer={footer}
               >
                 <Conversation messages={convo.messages} streaming={convo.streaming} />
-              </Panel>
+              </Stage>
             ) : null}
           </AnimatePresence>
           <AnimatePresence>
@@ -295,7 +284,7 @@ function Ready({
               <Bubble
                 key="bubble"
                 persona={config.persona}
-                pulse={notifications.notifications.length > 0}
+                pulse={false}
                 onClick={() => openConversation("manual")}
               />
             )}

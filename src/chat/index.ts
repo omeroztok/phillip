@@ -3,8 +3,8 @@ export { Bubble } from "./Bubble";
 export { Composer } from "./Composer";
 export { Conversation } from "./Conversation";
 export { Message } from "./Message";
-export { Panel } from "./Panel";
 export { QuickReplies } from "./QuickReplies";
+export { Stage } from "./Stage";
 export { TypingIndicator } from "./TypingIndicator";
 export {
   type ControlEvent,

@@ -15,9 +15,10 @@ const listOrchestration = {
   animate: { transition: { staggerChildren } },
 };
 
-// The scrollable message list. Typing shows while we're awaiting Phillip's first
-// token; once it streams in, the growing message replaces it. Persona comes from
-// the shared runtime rather than props.
+// The floating transcript — bubbles stacked over the vignette, no box. Bottom-
+// anchored and grows upward; the top edge fades (CSS mask) so older messages
+// dissolve into the page. A bubble shows its tail only when it's the last of a
+// consecutive run from the same sender (iMessage behavior).
 export function Conversation({ messages, streaming }: { messages: Msg[]; streaming: boolean }) {
   const { config } = usePhillip();
   const persona = config.persona;
@@ -34,9 +35,13 @@ export function Conversation({ messages, streaming }: { messages: Msg[]; streami
   return (
     <m.div className="convo" variants={listOrchestration} initial="initial" animate="animate">
       <AnimatePresence initial={false}>
-        {messages.map((msg) => (
-          <Message key={msg.id} message={msg} persona={persona} />
-        ))}
+        {messages.map((msg, i) => {
+          const next = messages[i + 1];
+          // Tail on the last of a run; the typing indicator after a Phillip
+          // message means that message isn't visually "last" yet.
+          const tail = !next || next.role !== msg.role;
+          return <Message key={msg.id} message={msg} tail={tail} />;
+        })}
       </AnimatePresence>
       {showTyping ? <TypingIndicator persona={persona} /> : null}
       <div ref={endRef} />
