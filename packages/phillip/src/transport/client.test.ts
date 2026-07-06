@@ -16,7 +16,7 @@ describe("TransportClient against the mock backend", () => {
   it("streams an agent reply frame by frame", async () => {
     const client = new TransportClient({ apiBase: "" });
     const events: StreamEvent[] = [];
-    for await (const ev of client.streamMessage("ses_x", { quickReplyId: "qr_but" })) {
+    for await (const ev of client.streamMessage("ses_x", { quickReplyId: "qr_revise" })) {
       events.push(ev);
     }
     const types = events.map((e) => e.type);

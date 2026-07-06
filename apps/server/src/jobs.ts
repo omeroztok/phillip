@@ -1,9 +1,11 @@
+import type Anthropic from "@anthropic-ai/sdk";
 import type { IterationStatus } from "@nutz/phillip";
 import { prefixedId } from "./id";
+import { reviseSite } from "./site";
 
-// Stub iteration jobs — the real Build agent lives elsewhere. This just
-// satisfies the /v1/iterations contract so the on-screen "give me a sec" ->
-// "done, refresh" loop has something to poll while testing the conversation.
+// Real iteration jobs: kick off a Claude edit in the background and let the
+// client keep polling the same /v1/iterations contract it always has. The
+// job's status genuinely reflects whether the model call has finished.
 
 export interface IterationJob {
   id: string;
@@ -12,31 +14,40 @@ export interface IterationJob {
   version?: number;
 }
 
-interface JobState {
-  job: IterationJob;
-  polls: number;
-  readyAfter: number;
-}
+const jobs = new Map<string, IterationJob>();
 
-const jobs = new Map<string, JobState>();
-
-export function createJob(_previewId: string): IterationJob {
+export function createJob(
+  anthropic: Anthropic,
+  model: string,
+  previewId: string,
+  changeRequest: string,
+): IterationJob {
   const id = prefixedId("itr");
   const job: IterationJob = { id, status: "queued" };
-  jobs.set(id, { job, polls: 0, readyAfter: 2 });
+  jobs.set(id, job);
+
+  void reviseSite({ anthropic, model, previewId, changeRequest })
+    .then((site) => {
+      const current = jobs.get(id);
+      if (!current) return;
+      current.status = "done";
+      current.version = site.version;
+      current.resultUrl = `https://nutz.site/marisol?v=${site.version}`;
+    })
+    .catch((err) => {
+      console.error("revision failed:", err);
+      const current = jobs.get(id);
+      if (current) current.status = "failed";
+    });
+
   return { ...job };
 }
 
 export function advanceJob(id: string): IterationJob | null {
-  const state = jobs.get(id);
-  if (!state) return null;
-  state.polls += 1;
-  if (state.polls >= state.readyAfter) {
-    state.job.status = "done";
-    state.job.resultUrl = `https://nutz.site/marisol?v=${state.polls + 1}`;
-    state.job.version = state.polls + 1;
-  } else {
-    state.job.status = "processing";
-  }
-  return { ...state.job };
+  const job = jobs.get(id);
+  if (!job) return null;
+  // Flips to "processing" on the first poll after creation; a "done"/"failed"
+  // set by the background revision above always takes priority.
+  if (job.status === "queued") job.status = "processing";
+  return { ...job };
 }

@@ -7,20 +7,13 @@ import { Conversation } from "./chat/Conversation";
 import { Nudge } from "./chat/Nudge";
 import { QuickReplies } from "./chat/QuickReplies";
 import { Stage } from "./chat/Stage";
-import { type ControlEvent, useConversation } from "./chat/useConversation";
+import { type ControlEvent, REACTION_QUICK_REPLIES, useConversation } from "./chat/useConversation";
 import { PhillipProvider } from "./core/PhillipProvider";
 import type { RuntimeConfig } from "./core/config";
 import { useBoot } from "./core/useBoot";
 import { FunnelEmitter } from "./funnel";
 import type { Intent, Sentiment } from "./intent/types";
-import {
-  type IterationOption,
-  IterationPanel,
-  MAX_INLINE_ROUNDS,
-  captureChangeSet,
-  isHeavyRequest,
-  useIteration,
-} from "./iteration";
+import { MAX_REVISIONS, captureChangeSet, isHeavyRequest, useIteration } from "./iteration";
 import { log } from "./lib/log";
 import { Vignette } from "./overlay/Vignette";
 import {
@@ -37,13 +30,15 @@ import type { PingReason } from "./types/events";
 export interface PhillipWidgetProps {
   runtime: RuntimeConfig;
   client: TransportClient;
+  /** Fires once a revision lands, so the host page can refresh the preview. */
+  onSiteUpdated?: (info: { previewId: string; version?: number }) => void;
 }
 
-type Flow = "chat" | "iteration" | "escalation" | "checkout" | "setup";
+type Flow = "chat" | "approved" | "escalation" | "checkout" | "setup";
 
 // Top of the widget tree (this is the React root rendered *inside* the shadow
 // root). Boots, then hands off to Ready once we have the config.
-export function PhillipWidget({ runtime, client }: PhillipWidgetProps) {
+export function PhillipWidget({ runtime, client, onSiteUpdated }: PhillipWidgetProps) {
   const boot = useBoot(runtime.previewId, client);
 
   if (boot.status === "loading") return null;
@@ -51,17 +46,21 @@ export function PhillipWidget({ runtime, client }: PhillipWidgetProps) {
     log.error("boot failed", boot.error);
     return null;
   }
-  return <Ready runtime={runtime} client={client} config={boot.config} />;
+  return (
+    <Ready runtime={runtime} client={client} config={boot.config} onSiteUpdated={onSiteUpdated} />
+  );
 }
 
 function Ready({
   runtime,
   client,
   config,
+  onSiteUpdated,
 }: {
   runtime: RuntimeConfig;
   client: TransportClient;
   config: BootConfig;
+  onSiteUpdated?: PhillipWidgetProps["onSiteUpdated"];
 }) {
   // One tracker + funnel for the widget's lifetime.
   const trackerRef = useRef<Tracker | null>(null);
@@ -107,11 +106,17 @@ function Ready({
     else if (intent === "escalate") funnel.to("escalated", "escalate");
   };
 
-  // The backend drives which sub-flow opens via control events.
+  // The backend drives which sub-flow opens via control events. Only
+  // "approved"/"escalate"/"open_checkout" actually change the footer — the
+  // composer is always live for edits, so start_iteration is just a funnel
+  // beat (the button/text that triggered it already reads fine on its own).
   const onControl = (control: ControlEvent) => {
-    if (control.type === "start_iteration") {
+    if (control.type === "approved") {
+      // The streamed reply already carries the confirmation text — this
+      // control only needs to end the flow, not add another message.
+      setFlow("approved");
+    } else if (control.type === "start_iteration") {
       funnel.to("iterating", "control");
-      setFlow("iteration");
     } else if (control.type === "escalate") {
       funnel.to("escalated", "control");
       setFlow("escalation");
@@ -132,29 +137,59 @@ function Ready({
     onControl,
   });
 
+  // Set right before submit, read by onReady/onFailed below, so the "updating…"
+  // bubble that was already in the transcript can flip in place to the real
+  // result instead of a second message appearing next to it.
+  const pendingMsgIdRef = useRef<string | null>(null);
+
   const iteration = useIteration({
     client,
     previewId: config.preview.id,
     tracker,
-    onReady: () => convo.appendPhillip("done, refresh to see it ✨"),
-    onFailed: () => convo.appendSystem("hmm, that one didn't take. want to try again?", true),
+    onReady: (job) => {
+      onSiteUpdated?.({ previewId: config.preview.id, version: job.version });
+      const pendingId = pendingMsgIdRef.current;
+      pendingMsgIdRef.current = null;
+      if (pendingId) convo.resolvePending(pendingId, "done! here's the updated version.");
+      else convo.appendPhillip("done, here's the updated version.");
+      convo.appendPhillip("are you happy with this version?");
+      convo.proposeQuickReplies(REACTION_QUICK_REPLIES);
+      setFlow("chat");
+    },
+    onFailed: () => {
+      const pendingId = pendingMsgIdRef.current;
+      pendingMsgIdRef.current = null;
+      if (pendingId)
+        convo.resolvePending(pendingId, "hmm, that one didn't take. want to try again?", true);
+      else convo.appendSystem("hmm, that one didn't take. want to try again?", true);
+    },
   });
 
-  // Phase 04 vs 05 split: heavy asks or too many inline rounds hand off.
-  const onIterationSubmit = (selected: IterationOption[], freeText: string) => {
-    const changeSet = captureChangeSet(selected, freeText);
-    if (isHeavyRequest(changeSet) || iteration.round >= MAX_INLINE_ROUNDS) {
+  const limitReached = iteration.round >= MAX_REVISIONS;
+
+  // Every composer message while the site is up for review *is* an edit
+  // instruction (Lovable-style) — no separate panel, no re-asking, no
+  // yes/no gate to click through first. Only a genuinely heavy ask or the
+  // revision cap detours into a different flow.
+  const onReviseSubmit = (text: string) => {
+    convo.appendLead(text);
+    const changeSet = captureChangeSet([], text);
+    if (isHeavyRequest(changeSet)) {
       convo.appendPhillip(
-        "that's a bigger change and worth doing right. drop your email and my colleague will pick it up.",
+        "that's a bigger change and worth doing right. drop your email and i'll follow up once it's built.",
       );
-      funnel.to("escalated", "heavy_or_round_cap");
+      funnel.to("escalated", "heavy_request");
       setFlow("escalation");
       return;
     }
-    const summary = [...selected.map((s) => s.label), freeText.trim()].filter(Boolean).join(", ");
-    convo.appendPhillip(`got it, ${summary}. give me a sec.`);
+    if (limitReached) {
+      convo.appendPhillip(
+        "you've reached the edit limit for now. we can continue manually from here.",
+      );
+      return;
+    }
+    pendingMsgIdRef.current = convo.appendPending("updating your site…");
     iteration.submit(changeSet);
-    setFlow("chat");
   };
 
   // Phase 05 — Escalation (stub): capture + validate email, hand off.
@@ -224,16 +259,8 @@ function Ready({
   );
 
   let footer: ReactNode;
-  if (flow === "iteration") {
-    footer = (
-      <div className="stage-card">
-        <IterationPanel
-          busy={iteration.busy}
-          onSubmit={onIterationSubmit}
-          onCancel={() => setFlow("chat")}
-        />
-      </div>
-    );
+  if (flow === "approved") {
+    footer = <div className="notice">preview approved, you're all set.</div>;
   } else if (flow === "escalation") {
     footer = (
       <div className="stage-card">
@@ -265,7 +292,7 @@ function Ready({
           disabled={convo.streaming}
           onPick={(qr) => convo.send({ quickReply: qr })}
         />
-        <Composer disabled={convo.streaming} onSend={(text) => convo.send({ text })} />
+        <Composer disabled={convo.streaming || iteration.busy} onSend={onReviseSubmit} />
       </>
     );
   }

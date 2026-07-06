@@ -7,15 +7,16 @@ import type { TransportClient } from "../transport";
 import type { SendMessageRequest } from "../transport";
 import type { Persona } from "../types/boot";
 
-// The three doors at the reaction step. Ids match what the backend classifier
+// The two doors at the reaction step. Ids match what the backend classifier
 // (and the mock) expect.
 export const REACTION_QUICK_REPLIES: QuickReply[] = [
-  { id: "qr_love", label: "love it", intent: "positive" },
-  { id: "qr_but", label: "looks good, but…", intent: "iterate" },
-  { id: "qr_no", label: "not feeling it", intent: "objection" },
+  { id: "qr_yes", label: "yes, looks good", intent: "positive" },
+  { id: "qr_revise", label: "no, i want changes", intent: "iterate" },
 ];
 
-export type ControlEvent = { type: "start_iteration" | "escalate" | "open_checkout" };
+export type ControlEvent = {
+  type: "approved" | "start_iteration" | "escalate" | "open_checkout";
+};
 
 export interface UseConversationOptions {
   client: TransportClient;
@@ -35,6 +36,13 @@ export interface ConversationApi {
   send: (input: { text?: string; quickReply?: QuickReply }) => void;
   appendSystem: (text: string, error?: boolean) => void;
   appendPhillip: (text: string) => void;
+  appendLead: (text: string) => void;
+  /** Lovable-style "working…" bubble; returns its id so callers can resolve it. */
+  appendPending: (text: string) => string;
+  /** Flips a pending bubble to its final text once the work is actually done. */
+  resolvePending: (id: string, text: string, error?: boolean) => void;
+  /** Re-show a set of quick replies client-side, without a round trip. */
+  proposeQuickReplies: (replies: QuickReply[]) => void;
   retryLast: () => void;
 }
 
@@ -76,6 +84,22 @@ export function useConversation(opts: UseConversationOptions): ConversationApi {
     setMessages((m) => [...m, { id: prefixedId("msg"), role: "phillip", text, ts: nowIso() }]);
   };
 
+  // The lead's side of a sub-flow that doesn't go through send() (e.g. a
+  // revise request), so it still reads as a normal turn in the transcript.
+  const appendLead = (text: string): void => {
+    setMessages((m) => [...m, { id: prefixedId("msg"), role: "lead", text, ts: nowIso() }]);
+  };
+
+  const appendPending = (text: string): string => {
+    const id = prefixedId("msg");
+    setMessages((m) => [...m, { id, role: "phillip", text, ts: nowIso(), working: true }]);
+    return id;
+  };
+
+  const resolvePending = (id: string, text: string, error = false): void => {
+    setMessages((m) => m.map((x) => (x.id === id ? { ...x, text, working: false, error } : x)));
+  };
+
   async function runStream(req: SendMessageRequest): Promise<void> {
     setStreaming(true);
     streamingRef.current = true;
@@ -114,6 +138,9 @@ export function useConversation(opts: UseConversationOptions): ConversationApi {
           }
           case "propose_quick_replies":
             setQuickReplies(ev.data.quickReplies);
+            break;
+          case "approved":
+            opts.onControl?.({ type: "approved" });
             break;
           case "start_iteration":
             opts.onControl?.({ type: "start_iteration" });
@@ -178,5 +205,21 @@ export function useConversation(opts: UseConversationOptions): ConversationApi {
     void runStream(lastReqRef.current);
   };
 
-  return { messages, streaming, quickReplies, send, appendSystem, appendPhillip, retryLast };
+  const proposeQuickReplies = (replies: QuickReply[]): void => {
+    setQuickReplies(replies);
+  };
+
+  return {
+    messages,
+    streaming,
+    quickReplies,
+    send,
+    appendSystem,
+    appendPhillip,
+    appendLead,
+    appendPending,
+    resolvePending,
+    proposeQuickReplies,
+    retryLast,
+  };
 }

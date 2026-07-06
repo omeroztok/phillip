@@ -202,7 +202,7 @@ export const styles = `
   right: 20px;
   bottom: 20px;
   z-index: var(--p-z-stage);
-  width: min(384px, calc(100vw - 32px));
+  width: min(422px, calc(100vw - 32px));
   max-height: min(78vh, 660px);
   display: flex;
   flex-direction: column;
@@ -240,6 +240,10 @@ export const styles = `
   mask-image: linear-gradient(to bottom, transparent 0%, #000 25%);
 }
 .stage-footer { pointer-events: auto; margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+/* The AnimatePresence wrapper Stage renders around the active footer content
+   (quick replies + composer, or a sub-flow card) — this is the actual flex
+   container stacking them, .stage-footer itself only ever has this one child. */
+.footer-swap { display: flex; flex-direction: column; gap: 12px; }
 
 /* --- transcript --- */
 /* Tight within a run; the gap between runs comes from the tail row's reserved
@@ -296,7 +300,7 @@ export const styles = `
 .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--p-muted); display: block; }
 
 /* --- quick replies (floating glass chips) --- */
-.quick-replies { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
+.quick-replies { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
 .qr {
   border: none; color: var(--p-fg);
   background: var(--p-glass);
@@ -340,23 +344,7 @@ export const styles = `
   border-radius: 20px;
   box-shadow: var(--p-shadow), var(--p-glass-ring);
 }
-.iteration { padding: 13px 15px; display: flex; flex-direction: column; gap: 10px; }
 .iter-label { font-size: 12px; color: var(--p-muted); font-weight: 600; }
-.iter-options { display: flex; flex-wrap: wrap; gap: 7px; }
-.iter-chip {
-  border: 1px solid rgba(0,0,0,.08); background: rgba(255,255,255,.6); border-radius: 999px;
-  padding: 7px 13px; font-size: 13px; cursor: pointer; font-family: inherit;
-  transition: background .12s ease, border-color .12s ease;
-}
-.iter-chip:hover { background: #fff; }
-.iter-chip.selected { background: var(--p-accent); color: var(--p-accent-fg); border-color: var(--p-accent); }
-.iter-text {
-  border: 1px solid rgba(0,0,0,.1); border-radius: 14px; padding: 10px 13px;
-  font-size: 14px; font-family: inherit; resize: none; min-height: 60px; outline: none;
-  color: var(--p-fg); background: rgba(255,255,255,.7);
-  transition: border-color .14s ease, box-shadow .14s ease;
-}
-.iter-text:focus { border-color: #c7c7cd; box-shadow: 0 0 0 4px rgba(0,0,0,.04); }
 .iter-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .iter-submit {
   border: none; border-radius: 999px; padding: 9px 17px; font-size: 13px; font-weight: 600;

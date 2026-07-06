@@ -21,8 +21,9 @@ export const ITERATION_OPTIONS: IterationOption[] = [
   { id: "fix_contact", label: "update contact info", kind: "contact" },
 ];
 
-// After this many inline rounds without converging, escalate (SPEC.md round cap).
-export const MAX_INLINE_ROUNDS = 3;
+// The basic rate limit on inline revisions per preview. Past this, Phillip
+// stops taking free-text edits and hands off manually.
+export const MAX_REVISIONS = 5;
 
 /** Structure the selected guided options + free text into a change-set. */
 export function captureChangeSet(selected: IterationOption[], freeText?: string): ChangeSet {

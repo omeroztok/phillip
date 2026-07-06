@@ -22,6 +22,8 @@ export interface Message {
   quickReplies?: QuickReply[];
   /** True while the assistant reply is still streaming in. */
   streaming?: boolean;
+  /** True while a background job (e.g. a revision) this bubble represents is still running. */
+  working?: boolean;
   /** True when the reply failed and a retry affordance should show. */
   error?: boolean;
   /**

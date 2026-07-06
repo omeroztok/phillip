@@ -15,6 +15,8 @@ export interface MountOptions {
   fetch?: FetchLike;
   /** Where to attach the host element. Defaults to document.body. */
   target?: HTMLElement;
+  /** Fires once a revision lands, so the host page can refresh its preview. */
+  onSiteUpdated?: (info: { previewId: string; version?: number }) => void;
 }
 
 function applyStyles(shadow: ShadowRoot): void {
@@ -65,7 +67,9 @@ export function mount(opts: MountOptions): () => void {
   const client = new TransportClient({ apiBase: runtime.apiBase, fetch: opts.fetch });
 
   let root: Root | null = createRoot(inner);
-  root.render(<PhillipWidget runtime={runtime} client={client} />);
+  root.render(
+    <PhillipWidget runtime={runtime} client={client} onSiteUpdated={opts.onSiteUpdated} />,
+  );
 
   return () => {
     const r = root;

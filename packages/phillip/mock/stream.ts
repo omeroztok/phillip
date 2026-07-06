@@ -11,7 +11,7 @@ function frame(event: string, data: unknown): Uint8Array {
   return enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
-export type ControlType = "start_iteration" | "escalate" | "open_checkout";
+export type ControlType = "approved" | "start_iteration" | "escalate" | "open_checkout";
 
 export interface ReplyPlan {
   intent: Intent;
@@ -22,15 +22,8 @@ export interface ReplyPlan {
 }
 
 const REACTION_REPLIES: QuickReply[] = [
-  { id: "qr_love", label: "love it", intent: "positive" },
-  { id: "qr_but", label: "looks good, but…", intent: "iterate" },
-  { id: "qr_no", label: "not feeling it", intent: "objection" },
-];
-
-const ITERATE_OPTIONS: QuickReply[] = [
-  { id: "opt_colors", label: "the colors", intent: "iterate" },
-  { id: "opt_copy", label: "the words", intent: "iterate" },
-  { id: "opt_photos", label: "the photos", intent: "iterate" },
+  { id: "qr_yes", label: "yes, looks good", intent: "positive" },
+  { id: "qr_revise", label: "no, i want changes", intent: "iterate" },
 ];
 
 // The real backend runs a classifier; the mock keyword-matches. Same wire shape.
@@ -43,28 +36,20 @@ export function planReply(input: {
   const text = (input.message ?? "").toLowerCase();
   const biz = input.business;
 
-  if (qr === "qr_love") {
+  if (qr === "qr_yes") {
     return {
       intent: "positive",
       sentiment: "positive",
-      text: `love that. honestly ${biz} earned it. want me to make it live?`,
-      control: "open_checkout",
+      text: "great, your website is ready.",
+      control: "approved",
     };
   }
-  if (qr === "qr_but" || qr === "opt_colors" || qr === "opt_copy" || qr === "opt_photos") {
+  if (qr === "qr_revise") {
     return {
       intent: "iterate",
       sentiment: "neutral",
-      text: "totally. tell me what to change and i'll redo it right now.",
+      text: "totally, describe what you want changed and i'll update it.",
       control: "start_iteration",
-    };
-  }
-  if (qr === "qr_no") {
-    return {
-      intent: "objection",
-      sentiment: "negative",
-      text: "fair. what's off, the look, the words, or the photos?",
-      quickReplies: ITERATE_OPTIONS,
     };
   }
 
@@ -72,7 +57,7 @@ export function planReply(input: {
     return {
       intent: "escalate",
       sentiment: "neutral",
-      text: "for sure. drop your email and my colleague picks it up, usually within the hour.",
+      text: "for sure. drop your email and i'll follow up, usually within the hour.",
       control: "escalate",
     };
   }
@@ -84,7 +69,7 @@ export function planReply(input: {
     return {
       intent: "escalate",
       sentiment: "neutral",
-      text: "that's a bigger one and worth doing right. drop your email and we'll take it from there.",
+      text: "that's a bigger one and worth doing right. drop your email and i'll take it from there.",
       control: "escalate",
     };
   }
@@ -94,8 +79,8 @@ export function planReply(input: {
     return {
       intent: "positive",
       sentiment: "positive",
-      text: "amazing. want me to make it live?",
-      control: "open_checkout",
+      text: "great, your website is ready.",
+      control: "approved",
     };
   }
   if (
@@ -106,7 +91,7 @@ export function planReply(input: {
     return {
       intent: "iterate",
       sentiment: "neutral",
-      text: "got it. give me the specifics and i'll redo it now.",
+      text: "got it, describe the change and i'll update it now.",
       control: "start_iteration",
     };
   }

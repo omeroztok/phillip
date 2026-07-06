@@ -1,11 +1,13 @@
 import "dotenv/config";
 import Anthropic from "@anthropic-ai/sdk";
+import type { ChangeSet } from "@nutz/phillip";
 import cors from "cors";
 import express from "express";
 import { DEMO_CONTEXT, demoBootConfig } from "./fixtures";
 import { prefixedId } from "./id";
 import { advanceJob, createJob } from "./jobs";
 import { streamPhillipReply } from "./reply";
+import { getSite } from "./site";
 import { resolveQuickReply } from "./store";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -49,7 +51,13 @@ app.post("/v1/conversations/:sessionId/messages", async (req, res) => {
 });
 
 app.post("/v1/iterations", (req, res) => {
-  res.json(createJob(req.body.previewId));
+  const { previewId, changeSet } = req.body as { previewId: string; changeSet: ChangeSet };
+  const changeRequest = changeSet?.freeText?.trim();
+  if (!changeRequest) {
+    res.status(400).json({ error: "changeSet.freeText is required" });
+    return;
+  }
+  res.json(createJob(anthropic, MODEL, previewId, changeRequest));
 });
 
 app.get("/v1/iterations/:id", (req, res) => {
@@ -59,6 +67,10 @@ app.get("/v1/iterations/:id", (req, res) => {
     return;
   }
   res.json(job);
+});
+
+app.get("/v1/preview/:id/site", (req, res) => {
+  res.json(getSite(req.params.id));
 });
 
 app.post("/v1/escalations", (_req, res) => {

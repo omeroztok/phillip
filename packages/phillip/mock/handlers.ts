@@ -7,6 +7,7 @@ import type {
 } from "../src/transport/types";
 import { makeBootConfig } from "./fixtures";
 import { advanceJob, createJob } from "./jobs";
+import { getSite } from "./site";
 import { planReply, streamReply } from "./stream";
 
 // The one place the API contract lives. Wildcard origins (`*/v1/...`) so the
@@ -42,13 +43,17 @@ export const handlers = [
 
   http.post("*/v1/iterations", async ({ request }) => {
     const body = (await request.json()) as CreateIterationRequest;
-    return HttpResponse.json(createJob(body.previewId));
+    return HttpResponse.json(createJob(body.previewId, body.changeSet.freeText));
   }),
 
   http.get("*/v1/iterations/:id", ({ params }) => {
     const job = advanceJob(String(params.id));
     if (!job) return new HttpResponse(null, { status: 404 });
     return HttpResponse.json(job);
+  }),
+
+  http.get("*/v1/preview/:id/site", ({ params }) => {
+    return HttpResponse.json(getSite(String(params.id)));
   }),
 
   // --- stubbed phases (typed contract; bodies are placeholders) ---

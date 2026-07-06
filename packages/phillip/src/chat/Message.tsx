@@ -25,11 +25,20 @@ export function Message({ message, tail }: { message: Msg; tail: boolean }) {
     <m.div className={`msg ${message.role}${tail ? " has-tail" : ""}`} variants={variants}>
       <div className="msg-bubble-wrap">
         {/* Tail lives inside the bubble (like the simulator) so it hangs below
-            and insets from the corner. */}
-        <div className={message.error ? "msg-bubble error" : "msg-bubble"}>
+            and insets from the corner. Working bubbles pulse (Lovable-style
+            "executing…") so a revision reads as real work, not an instant no-op. */}
+        <m.div
+          className={message.error ? "msg-bubble error" : "msg-bubble"}
+          animate={message.working && !reduce ? { opacity: [1, 0.5, 1] } : undefined}
+          transition={
+            message.working && !reduce
+              ? { duration: 1.1, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }
+              : undefined
+          }
+        >
           {message.text}
           {tail ? <BubbleTail className="msg-tail" /> : null}
-        </div>
+        </m.div>
       </div>
     </m.div>
   );

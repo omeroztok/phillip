@@ -7,6 +7,8 @@ export interface PhillipProps {
   debug?: boolean;
   /** Injectable fetch (testing); production uses the global. */
   fetch?: MountOptions["fetch"];
+  /** Fires once a revision lands, so the host page can refresh its preview. */
+  onSiteUpdated?: MountOptions["onSiteUpdated"];
 }
 
 /**
@@ -15,9 +17,11 @@ export interface PhillipProps {
  * an effect, and tears it down on unmount. Renders nothing itself.
  */
 export function Phillip(props: PhillipProps): null {
-  // fetch is read through a ref so passing an inline fn doesn't remount.
+  // Read through refs so passing inline functions doesn't remount.
   const fetchRef = useRef(props.fetch);
   fetchRef.current = props.fetch;
+  const onSiteUpdatedRef = useRef(props.onSiteUpdated);
+  onSiteUpdatedRef.current = props.onSiteUpdated;
 
   useEffect(() => {
     const dispose = mount({
@@ -25,6 +29,7 @@ export function Phillip(props: PhillipProps): null {
       apiBase: props.apiBase,
       debug: props.debug,
       fetch: fetchRef.current,
+      onSiteUpdated: (info) => onSiteUpdatedRef.current?.(info),
     });
     return dispose;
   }, [props.previewId, props.apiBase, props.debug]);

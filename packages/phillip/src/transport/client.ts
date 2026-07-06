@@ -8,6 +8,7 @@ import type {
   EventsBatchRequest,
   IterationJob,
   SendMessageRequest,
+  SiteState,
   StreamEvent,
 } from "./types";
 
@@ -68,6 +69,11 @@ export class TransportClient {
 
   getIteration(id: string): Promise<IterationJob> {
     return this.rest.getJson<IterationJob>(`/iterations/${encodeURIComponent(id)}`);
+  }
+
+  /** The preview's current generated markup — refetch after an iteration lands. */
+  getSite(previewId: string): Promise<SiteState> {
+    return this.rest.getJson<SiteState>(`/preview/${encodeURIComponent(previewId)}/site`);
   }
 
   // --- stubbed phases (typed now, wired later) ---

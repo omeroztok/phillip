@@ -69,6 +69,7 @@ const STREAM_EVENT_TYPES = new Set<StreamEventType>([
   "intent",
   "sentiment",
   "propose_quick_replies",
+  "approved",
   "start_iteration",
   "escalate",
   "open_checkout",

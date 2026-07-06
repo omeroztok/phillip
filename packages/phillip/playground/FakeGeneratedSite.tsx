@@ -1,17 +1,75 @@
 // A stand-in for an auto-generated business site. It exists so the engagement
 // score has something real to accumulate on: tall scrollable sections marked
 // with data-section, a CTA, a gallery, and contact links — the exact hooks the
-// analytics layer watches.
+// analytics layer watches. Rendered as real DOM (not an iframe, unlike
+// LiveSite) so those hooks stay reachable from the host page.
+//
+// Revisions in mock mode still apply here: the mock backend keyword-matches
+// the change request into a few visible theme knobs (see mock/site.ts) and
+// this component polls and reflects them, so "no, i want changes" produces an
+// actual, visible edit instead of just a chat message.
+
+import { useEffect, useState } from "react";
 
 const TILES = ["#ff8a5b", "#ff4d8d", "#7c5cff", "#1fb6a6", "#f6c945", "#ff6f61"];
 
-export function FakeGeneratedSite() {
+interface MockSiteState {
+  version: number;
+  accent: string;
+  premium: boolean;
+  tagline: string;
+  businessName: string;
+}
+
+const DEFAULT_SITE: MockSiteState = {
+  version: 1,
+  accent: "#b45",
+  premium: false,
+  tagline: "wood-fired seafood and natural wine, two blocks from the water.",
+  businessName: "Marisol's",
+};
+
+export function FakeGeneratedSite({
+  apiBase,
+  previewId,
+  refreshKey,
+}: {
+  apiBase: string;
+  previewId: string;
+  refreshKey: number;
+}) {
+  const [site, setSite] = useState<MockSiteState>(DEFAULT_SITE);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey only retriggers this fetch, it isn't read.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${apiBase}/v1/preview/${encodeURIComponent(previewId)}/site`)
+      .then((res) => (res.ok ? (res.json() as Promise<MockSiteState>) : Promise.reject(res.status)))
+      .then((data) => {
+        if (!cancelled) setSite(data);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBase, previewId, refreshKey]);
+
   return (
-    <div className="site">
+    <div
+      className="site"
+      style={
+        {
+          "--accent": site.accent,
+          fontFamily: site.premium
+            ? "Georgia, 'Times New Roman', serif"
+            : "'Inter', system-ui, -apple-system, sans-serif",
+        } as React.CSSProperties
+      }
+    >
       <style>{CSS}</style>
 
       <header className="nav">
-        <div className="brand">Marisol's</div>
+        <div className="brand">{site.businessName}</div>
         <nav>
           <a href="#menu">menu</a>
           <a href="#gallery">gallery</a>
@@ -22,8 +80,8 @@ export function FakeGeneratedSite() {
       <section className="hero" data-section="hero">
         <div className="hero-inner">
           <p className="eyebrow">est. 2009 · coastal kitchen</p>
-          <h1>Marisol's</h1>
-          <p className="tagline">wood-fired seafood and natural wine, two blocks from the water.</p>
+          <h1>{site.businessName}</h1>
+          <p className="tagline">{site.tagline}</p>
           <button type="button" className="cta" data-cta="hero">
             book a table
           </button>
@@ -112,7 +170,7 @@ const CSS = `
 .hero { min-height: 88vh; display: grid; place-items: center; text-align: center;
   background: radial-gradient(120% 120% at 50% 0%, #fff 0%, #ffe9e0 55%, #ffd9e6 100%); padding: 40px; }
 .hero-inner { max-width: 640px; }
-.eyebrow { text-transform: uppercase; letter-spacing: .18em; font-size: 12px; color: #b45; margin: 0 0 14px; }
+.eyebrow { text-transform: uppercase; letter-spacing: .18em; font-size: 12px; color: var(--accent, #b45); margin: 0 0 14px; }
 .hero h1 { font-size: clamp(48px, 10vw, 104px); }
 .tagline { font-size: 20px; color: #444; margin: 0 0 28px; }
 .cta { background: #18181b; color: #fff; border: 0; border-radius: 999px;
@@ -125,7 +183,7 @@ const CSS = `
 .card { background: #fff; border: 1px solid #eee; border-radius: 16px; padding: 22px; }
 .card-top { display: flex; justify-content: space-between; align-items: baseline; }
 .card-name { font-weight: 700; font-size: 18px; }
-.card-price { font-weight: 700; color: #b45; }
+.card-price { font-weight: 700; color: var(--accent, #b45); }
 .card-desc { color: #666; margin: 10px 0 0; font-size: 15px; }
 .gallery { max-width: 1080px; margin: 0 auto; padding: 64px 28px 96px; }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 24px; }
@@ -133,7 +191,7 @@ const CSS = `
 .contact { max-width: 720px; margin: 0 auto; padding: 64px 28px 120px; text-align: center; }
 .hours { font-size: 18px; color: #444; }
 .lines { font-size: 18px; margin: 10px 0; }
-.lines a { color: #b45; text-decoration: none; }
+.lines a { color: var(--accent, #b45); text-decoration: none; }
 .addr { color: #888; }
 .foot { text-align: center; padding: 40px; color: #aaa; font-size: 13px; border-top: 1px solid #eee; }
 @media (max-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }

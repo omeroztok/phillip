@@ -12,7 +12,7 @@ async function mountWidget(): Promise<ShadowRoot> {
 }
 
 describe("conversation flow", () => {
-  it("opens, greets, and streams a reply to a quick reply", async () => {
+  it("approves the preview and stops the flow", async () => {
     const shadow = await mountWidget();
 
     const bubble = await waitFor(() => {
@@ -22,31 +22,35 @@ describe("conversation flow", () => {
     });
     fireEvent.click(bubble);
 
-    // Greeting + the three reaction quick replies appear.
+    // Greeting + the yes/no approval quick replies appear.
     await waitFor(() => {
       expect(shadow.querySelector(".stage")).toBeTruthy();
       expect(shadow.textContent ?? "").toMatch(/honest take/i);
     });
 
-    const iterateReply = await waitFor(() => {
+    const yes = await waitFor(() => {
       const btn = [...shadow.querySelectorAll<HTMLButtonElement>(".qr")].find((b) =>
-        /looks good/i.test(b.textContent ?? ""),
+        /yes, looks good/i.test(b.textContent ?? ""),
       );
-      if (!btn) throw new Error("quick replies not ready");
+      if (!btn) throw new Error("approval quick replies not ready");
       return btn;
     });
-    fireEvent.click(iterateReply);
+    fireEvent.click(yes);
 
-    // The lead's choice echoes, then Phillip's reply streams in.
+    // Phillip confirms and the flow stops — no composer, no quick replies left.
     await waitFor(
       () => {
-        expect(shadow.textContent ?? "").toMatch(/redo it/i);
+        expect(shadow.textContent ?? "").toMatch(/website is ready/i);
       },
       { timeout: 4000 },
     );
+    await waitFor(() => {
+      expect(shadow.querySelector(".composer")).toBeFalsy();
+      expect(shadow.querySelectorAll(".qr").length).toBe(0);
+    });
   });
 
-  it("runs an inline iteration: pick options -> working -> done", async () => {
+  it("applies a typed change directly, no button needed, and re-asks approval", async () => {
     const shadow = await mountWidget();
 
     fireEvent.click(
@@ -57,35 +61,39 @@ describe("conversation flow", () => {
       }),
     );
 
-    const iterate = await waitFor(() => {
-      const btn = [...shadow.querySelectorAll<HTMLButtonElement>(".qr")].find((b) =>
-        /looks good/i.test(b.textContent ?? ""),
-      );
-      if (!btn) throw new Error("quick replies not ready");
-      return btn;
+    // Wait for the greeting so the composer is mounted, then type a change
+    // straight into it — no "no, i want changes" click required first,
+    // Lovable-style: any composer message while reviewing is an edit.
+    await waitFor(() => {
+      expect(shadow.textContent ?? "").toMatch(/honest take/i);
     });
-    fireEvent.click(iterate);
 
-    // The backend's start_iteration control opens the guided options.
-    const chip = await waitFor(
-      () => {
-        const c = [...shadow.querySelectorAll<HTMLButtonElement>(".iter-chip")].find((b) =>
-          /warmer/i.test(b.textContent ?? ""),
-        );
-        if (!c) throw new Error("iteration panel not open");
-        return c;
+    const input = await waitFor(() => {
+      const el = shadow.querySelector<HTMLInputElement>(".composer input");
+      if (!el) throw new Error("composer not ready");
+      return el;
+    });
+    fireEvent.change(input, { target: { value: "make the hero warmer" } });
+
+    const send = shadow.querySelector<HTMLButtonElement>('.composer button[type="submit"]');
+    if (!send) throw new Error("no send button");
+    fireEvent.click(send);
+
+    // The request itself reads as a normal lead bubble in the transcript.
+    await waitFor(() => expect(shadow.textContent ?? "").toMatch(/make the hero warmer/i));
+    await waitFor(
+      () => expect(shadow.textContent ?? "").toMatch(/are you happy with this version/i),
+      {
+        timeout: 6000,
       },
-      { timeout: 4000 },
     );
-    fireEvent.click(chip);
 
-    const submit = shadow.querySelector<HTMLButtonElement>(".iter-submit");
-    if (!submit) throw new Error("no submit button");
-    fireEvent.click(submit);
-
-    await waitFor(() => expect(shadow.textContent ?? "").toMatch(/give me a sec/i));
-    await waitFor(() => expect(shadow.textContent ?? "").toMatch(/refresh to see it/i), {
-      timeout: 6000,
+    // Approval quick replies show again.
+    await waitFor(() => {
+      const btn = [...shadow.querySelectorAll<HTMLButtonElement>(".qr")].find((b) =>
+        /yes, looks good/i.test(b.textContent ?? ""),
+      );
+      if (!btn) throw new Error("approval quick replies did not return");
     });
   });
 });

@@ -14,6 +14,12 @@
       "port": 5173
     },
     {
+      "name": "phillip-playground-mock",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@nutz/phillip", "dev"],
+      "port": 5173
+    },
+    {
       "name": "phillip-dashboard",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@nutz/dashboard", "dev"],

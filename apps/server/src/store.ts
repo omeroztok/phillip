@@ -19,14 +19,13 @@ export function appendTurn(sessionId: string, turn: Turn): void {
 }
 
 // The client only echoes back a quick reply's id, not its label (see
-// useConversation.ts) — since we're the ones minting those ids each turn,
-// we're on the hook for resolving them back to text for the model. The three
-// opening options are hardcoded client-side rather than served by us, so seed
-// those labels too.
+// useConversation.ts). since we're the ones minting those ids each turn,
+// we're on the hook for resolving them back to text for the model. The two
+// approval-gate options are hardcoded client-side rather than served by us,
+// so seed those labels too.
 const INITIAL_QUICK_REPLY_LABELS: Record<string, string> = {
-  qr_love: "love it",
-  qr_but: "looks good, but…",
-  qr_no: "not feeling it",
+  qr_yes: "yes, looks good",
+  qr_revise: "no, i want changes",
 };
 
 const quickReplyLabels = new Map<string, Map<string, string>>();
