@@ -10,6 +10,8 @@
   },
   "scripts": {
     "dev": "pnpm --filter @nutz/phillip dev",
+    "dev:server": "pnpm --filter @nutz/server dev",
+    "dev:live": "VITE_PHILLIP_BACKEND=live pnpm --filter @nutz/phillip dev",
     "dev:dashboard": "pnpm --filter @nutz/dashboard dev",
     "build": "pnpm -r build",
     "build:phillip": "pnpm --filter @nutz/phillip build",

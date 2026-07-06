@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "phillip-server",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@nutz/server", "dev"],
+      "port": 8787
+    },
+    {
+      "name": "phillip-playground-live",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "VITE_PHILLIP_BACKEND=live pnpm --filter @nutz/phillip dev"],
+      "port": 5173
+    }
+  ]
+}
