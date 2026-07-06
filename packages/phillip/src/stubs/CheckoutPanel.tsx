@@ -48,7 +48,7 @@ export function CheckoutPanel({
         </button>
       </m.div>
       <m.div className="iter-note" variants={itemVariants(reduce)}>
-        stripe checkout is stubbed in v0 — this simulates a successful payment.
+        stripe checkout is stubbed in v0, this simulates a successful payment.
       </m.div>
     </m.div>
   );

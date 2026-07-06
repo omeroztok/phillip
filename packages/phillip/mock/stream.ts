@@ -63,7 +63,7 @@ export function planReply(input: {
     return {
       intent: "objection",
       sentiment: "negative",
-      text: "fair. what's off — the look, the words, or the photos?",
+      text: "fair. what's off, the look, the words, or the photos?",
       quickReplies: ITERATE_OPTIONS,
     };
   }
@@ -114,7 +114,7 @@ export function planReply(input: {
   return {
     intent: "unknown",
     sentiment: "neutral",
-    text: `appreciate it. what do you think of ${biz}'s site — anything you'd change?`,
+    text: `appreciate it. what do you think of ${biz}'s site, anything you'd change?`,
     quickReplies: REACTION_REPLIES,
   };
 }

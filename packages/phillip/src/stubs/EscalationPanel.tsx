@@ -31,7 +31,7 @@ export function EscalationPanel({
       exit="exit"
     >
       <m.div className="iter-label" variants={itemVariants(reduce)}>
-        drop your email and a colleague picks it up — usually within the hour
+        drop your email and a colleague picks it up, usually within the hour
       </m.div>
       <m.div className="composer bare" variants={itemVariants(reduce)}>
         <input

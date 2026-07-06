@@ -91,7 +91,7 @@ function Ready({
 
   // A specific, human peek — names the person and their business, not "chat
   // with us". Lowercase, low-pressure, matches Phillip's voice.
-  const peek = `hey, i'm ${config.persona.name.toLowerCase()} 👋 i built this one for ${config.lead.business} — got a sec?`;
+  const peek = `hey, i'm ${config.persona.name.toLowerCase()} 👋 i built this one for ${config.lead.business}, got a sec?`;
 
   // Opening the floating conversation — from a ping or the resting bubble.
   const openConversation = (trigger: PingReason | "manual") => {
@@ -136,7 +136,7 @@ function Ready({
     client,
     previewId: config.preview.id,
     tracker,
-    onReady: () => convo.appendPhillip("done — refresh to see it ✨"),
+    onReady: () => convo.appendPhillip("done, refresh to see it ✨"),
     onFailed: () => convo.appendSystem("hmm, that one didn't take. want to try again?", true),
   });
 
@@ -152,7 +152,7 @@ function Ready({
       return;
     }
     const summary = [...selected.map((s) => s.label), freeText.trim()].filter(Boolean).join(", ");
-    convo.appendPhillip(`got it — ${summary}. give me a sec.`);
+    convo.appendPhillip(`got it, ${summary}. give me a sec.`);
     iteration.submit(changeSet);
     setFlow("chat");
   };
@@ -167,7 +167,7 @@ function Ready({
         convo.appendPhillip("sent. look out for a note from phillip@nutz.inc.");
         setFlow("chat");
       } else {
-        convo.appendSystem("that email looks off — mind checking it?", true);
+        convo.appendSystem("that email looks off, mind checking it?", true);
       }
     });
   };

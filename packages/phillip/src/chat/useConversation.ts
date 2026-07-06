@@ -43,7 +43,7 @@ const nowIso = (): string => new Date().toISOString();
 function greeting(persona: Persona, business: string): Message {
   const text =
     persona.greeting ??
-    `hey, i'm ${persona.name.toLowerCase()}. i built this one for ${business}. honest take — what do you think?`;
+    `hey, i'm ${persona.name.toLowerCase()}. i built this one for ${business}. honest take, what do you think?`;
   return { id: prefixedId("msg"), role: "phillip", text, ts: nowIso() };
 }
 
@@ -147,7 +147,7 @@ export function useConversation(opts: UseConversationOptions): ConversationApi {
       }
     } catch (err) {
       log.warn("stream failed", err);
-      appendSystem("hmm, that didn't go through — tap to try again.", true);
+      appendSystem("hmm, that didn't go through, tap to try again.", true);
     } finally {
       setStreaming(false);
       streamingRef.current = false;
