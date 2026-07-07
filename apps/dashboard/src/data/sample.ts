@@ -1,5 +1,27 @@
 import type { AnalyticsEvent, Conversation, Lead, Order, Preview, Session } from "@nutz/phillip";
 
+/** A single free-text ask a lead made to Phillip, and whether it landed. */
+export interface RequestedChange {
+  id: string;
+  text: string;
+  status: "pending" | "applied" | "failed";
+  appliedVersion?: number;
+  createdAt: string;
+}
+
+/** Bucketed hover/click/scroll-dwell totals for one session's heatmap. */
+export interface HeatmapAggregate {
+  grid: { cols: number; rows: number };
+  /** The page's real proportions, so the viewer can render the full page at the right aspect ratio. */
+  viewport: { width: number; height: number };
+  pageHeight: number;
+  /** [cellKey, count]. cellKey = col * grid.rows + row. */
+  hover: Array<[number, number]>;
+  click: Array<[number, number]>;
+  /** [row, ms] */
+  scrollMs: Array<[number, number]>;
+}
+
 // A composite of the shared records the way the team reads a single lead: the
 // lead + its preview + session context + the engagement score, its event
 // stream, and (once they talk) the conversation. This is exactly the shape a
@@ -12,6 +34,8 @@ export interface DashboardLead {
   events: AnalyticsEvent[];
   conversation?: Conversation;
   order?: Order;
+  requestedChanges?: RequestedChange[];
+  heatmap?: HeatmapAggregate;
 }
 
 const now = Date.now();

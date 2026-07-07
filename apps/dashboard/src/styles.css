@@ -756,6 +756,24 @@ body {
 .drawer-close:hover {
   background: var(--gray-200);
 }
+.heatmap-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: var(--brand-50);
+  color: var(--brand-600);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+.heatmap-btn:hover {
+  background: var(--brand-100);
+}
 .drawer-score {
   display: flex;
   align-items: center;
@@ -952,6 +970,40 @@ body {
   white-space: nowrap;
 }
 
+/* --- requested changes --- */
+.changes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.changes-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+.changes-row:last-child {
+  border-bottom: none;
+}
+.changes-text {
+  flex: 1;
+  font-size: 13px;
+  color: var(--gray-900);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.changes-time {
+  font-size: 12px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
 /* --- responsive --- */
 @media (max-width: 1000px) {
   .sidebar {
@@ -993,4 +1045,178 @@ body {
   * {
     scroll-behavior: auto;
   }
+}
+
+/* --- heatmap modal --- */
+.heatmap-scrim {
+  z-index: 60;
+}
+/* Centering lives here, via flexbox, not a transform — Motion writes its own
+   inline `transform` onto .heatmap-modal for the scale/y entrance animation,
+   which would silently clobber a CSS translate(-50%,-50%) on the same
+   element if we tried to center that way instead. */
+.heatmap-modal-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 61;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  pointer-events: none;
+}
+.heatmap-modal {
+  pointer-events: auto;
+  width: min(920px, calc(100vw - 40px));
+  /* A real height, not just a cap — .heatmap-stage below is flex:1 and needs
+     actual free space to grow into. With only max-height, a flex column sizes
+     to its content's natural height, and .heatmap-stage's content is now
+     itself sized via height:100% of this container, so there'd be nothing
+     forcing any space to exist at all (see HeatmapModal.tsx for why the
+     iframe/canvas are no longer given a large intrinsic pixel height). */
+  height: min(720px, calc(100vh - 60px));
+  max-height: calc(100vh - 60px);
+  background: var(--card-solid);
+  border-radius: 20px;
+  box-shadow: var(--shadow-lg);
+  padding: 20px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+}
+.heatmap-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.heatmap-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+.heatmap-head p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.heatmap-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--gray-100);
+  padding: 3px;
+  border-radius: 11px;
+  width: fit-content;
+}
+.heatmap-tab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.heatmap-tab.is-active {
+  background: var(--card-solid);
+  color: var(--gray-900);
+  box-shadow: var(--shadow-sm);
+}
+.heatmap-stage {
+  position: relative;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--gray-100);
+  flex: 1;
+  min-height: 240px;
+}
+/* Fixed-size window onto the live iframe below — the iframe itself scrolls
+   natively (real content, real `vh` resolution), the canvas overlay tracks
+   that scroll via a translateY synced to the iframe's own scrollY. Neither
+   is stretched to the full recorded page height anymore: that was the actual
+   bug behind "still ends at a certain point" (see HeatmapModal.tsx). */
+.heatmap-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.heatmap-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+.heatmap-frame-empty {
+  background: var(--gray-50);
+}
+.heatmap-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+/* Real DOM, not canvas pixels — a crisp, resolution-independent reference
+   mark rather than something subject to blur/raster softness. Zero-height so
+   the dashed border sits exactly on `top`, with the label centered on top of
+   the line itself (a plain divider-with-label pattern). */
+.heatmap-stopped-line {
+  position: absolute;
+  left: 0;
+  height: 0;
+  border-top: 2px dashed var(--gray-900);
+  pointer-events: none;
+}
+.heatmap-stopped-line span {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--gray-900);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.heatmap-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 20px;
+  background: rgba(249, 249, 251, 0.85);
+}
+.heatmap-empty p {
+  max-width: 320px;
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.heatmap-legend-bar {
+  width: 90px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb, #10b981, #eab308, #dc2626);
+}
+.heatmap-legend-spacer {
+  flex: 1;
 }

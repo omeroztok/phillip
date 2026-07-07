@@ -1,0 +1,95 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// The analytics surface only — site HTML versioning, iteration job polling,
+// and uploaded assets stay in the existing in-memory stores (site.ts,
+// jobs.ts, assets.ts), that's unrelated product mechanics, not tracking.
+
+model Lead {
+  id       String  @id
+  business String
+  contact  String?
+  industry String?
+  email    String?
+  source   String  @default("direct")
+  stage    String  @default("opened")
+
+  createdAt DateTime         @default(now())
+  previews  Preview[]
+  sessions  PreviewSession[]
+}
+
+model Preview {
+  id      String @id
+  leadId  String
+  lead    Lead   @relation(fields: [leadId], references: [id])
+  url     String
+  version Int    @default(1)
+  status  String @default("draft")
+
+  sessions PreviewSession[]
+}
+
+model PreviewSession {
+  id        String  @id
+  leadId    String
+  lead      Lead    @relation(fields: [leadId], references: [id])
+  previewId String
+  preview   Preview @relation(fields: [previewId], references: [id])
+
+  deviceType     String
+  deviceOs       String
+  deviceBrowser  String
+  viewportWidth  Int?
+  viewportHeight Int?
+  geoCountry     String?
+  geoRegion      String?
+  geoCity        String?
+  referrer       String?
+  returning      Boolean @default(false)
+
+  startedAt       DateTime @default(now())
+  lastSeen        DateTime @default(now())
+  engagementScore Int      @default(0)
+
+  events           InteractionEvent[]
+  messages         ConversationMessage[]
+  requestedChanges RequestedChange[]
+}
+
+model InteractionEvent {
+  id        String         @id
+  sessionId String
+  session   PreviewSession @relation(fields: [sessionId], references: [id])
+  type      String
+  payload   String // JSON-encoded
+  ts        DateTime       @default(now())
+}
+
+model ConversationMessage {
+  id        String         @id
+  sessionId String
+  session   PreviewSession @relation(fields: [sessionId], references: [id])
+  role      String // "lead" | "phillip" | "system"
+  text      String
+  ts        DateTime       @default(now())
+}
+
+model RequestedChange {
+  id             String         @id
+  sessionId      String
+  session        PreviewSession @relation(fields: [sessionId], references: [id])
+  text           String
+  status         String         @default("pending") // pending | applied | failed
+  appliedVersion Int?
+  createdAt      DateTime       @default(now())
+}

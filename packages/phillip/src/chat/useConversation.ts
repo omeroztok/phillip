@@ -73,16 +73,22 @@ export function useConversation(opts: UseConversationOptions): ConversationApi {
   const sentimentRef = useRef<Sentiment | undefined>(undefined);
   const convIdRef = useRef<string | undefined>(undefined);
 
+  // Every transcript mutator also reports a "transcript" event — the single
+  // choke point that lets the dashboard reconstruct the full conversation
+  // server-side, since most of these bubbles (typed change requests, the
+  // "updating…"/"done!" pair) never otherwise touch the backend.
   const appendSystem = (text: string, error = false): void => {
     setMessages((m) => [
       ...m,
       { id: prefixedId("msg"), role: "system", text, ts: nowIso(), error },
     ]);
+    tracker.track("transcript", { role: "system", text });
   };
 
   // Agent-side messages that aren't streamed (e.g. iteration playback / "done").
   const appendPhillip = (text: string): void => {
     setMessages((m) => [...m, { id: prefixedId("msg"), role: "phillip", text, ts: nowIso() }]);
+    tracker.track("transcript", { role: "phillip", text });
   };
 
   // The lead's side of a sub-flow that doesn't go through send() (e.g. a
@@ -92,16 +98,19 @@ export function useConversation(opts: UseConversationOptions): ConversationApi {
       ...m,
       { id: prefixedId("msg"), role: "lead", text, ts: nowIso(), attachments },
     ]);
+    tracker.track("transcript", { role: "lead", text });
   };
 
   const appendPending = (text: string): string => {
     const id = prefixedId("msg");
     setMessages((m) => [...m, { id, role: "phillip", text, ts: nowIso(), working: true }]);
+    tracker.track("transcript", { role: "phillip", text });
     return id;
   };
 
   const resolvePending = (id: string, text: string, error = false): void => {
     setMessages((m) => m.map((x) => (x.id === id ? { ...x, text, working: false, error } : x)));
+    tracker.track("transcript", { role: "phillip", text });
   };
 
   async function runStream(req: SendMessageRequest): Promise<void> {
@@ -111,6 +120,7 @@ export function useConversation(opts: UseConversationOptions): ConversationApi {
     intentRef.current = undefined;
     sentimentRef.current = undefined;
     let phillipId: string | null = null;
+    let assembledText = "";
 
     try {
       for await (const ev of client.streamMessage(sessionId, req)) {
@@ -127,6 +137,7 @@ export function useConversation(opts: UseConversationOptions): ConversationApi {
             break;
           case "delta": {
             const chunk = ev.data.text;
+            assembledText += chunk;
             if (!phillipId) {
               const id = prefixedId("msg");
               phillipId = id;
@@ -175,6 +186,7 @@ export function useConversation(opts: UseConversationOptions): ConversationApi {
           ),
         );
         tracker.track("message_received", { messageId: id });
+        tracker.track("transcript", { role: "phillip", text: assembledText });
       }
     } catch (err) {
       log.warn("stream failed", err);
@@ -197,6 +209,7 @@ export function useConversation(opts: UseConversationOptions): ConversationApi {
       messageId: leadMsg.id,
       viaQuickReply: Boolean(input.quickReply),
     });
+    tracker.track("transcript", { role: "lead", text });
 
     void runStream({
       message: input.quickReply ? undefined : text,

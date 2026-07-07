@@ -36,6 +36,7 @@ describe("TransportClient against the mock backend", () => {
     const client = new TransportClient({ apiBase: "" });
     const job = await client.createIteration({
       previewId: "prv_demo",
+      sessionId: "ses_prv_demo",
       changeSet: { items: [] },
       round: 1,
     });

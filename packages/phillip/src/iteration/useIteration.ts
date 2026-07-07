@@ -12,6 +12,7 @@ export type IterationPhase = "idle" | "submitting" | "working" | "done" | "faile
 export interface UseIterationOptions {
   client: TransportClient;
   previewId: string;
+  sessionId: string;
   tracker: Tracker;
   pollIntervalMs?: number;
   onReady?: (job: IterationJob) => void;
@@ -47,7 +48,12 @@ export function useIteration(opts: UseIterationOptions): IterationApi {
     });
 
     opts.client
-      .createIteration({ previewId: opts.previewId, changeSet, round: nextRound })
+      .createIteration({
+        previewId: opts.previewId,
+        sessionId: opts.sessionId,
+        changeSet,
+        round: nextRound,
+      })
       .then((job) => {
         setPhase("working");
         return pollJob(opts.client, job.id, { intervalMs: opts.pollIntervalMs });

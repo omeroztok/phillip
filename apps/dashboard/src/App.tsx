@@ -6,13 +6,15 @@ import { LeadDetail } from "./components/LeadDetail";
 import { LeadsTable } from "./components/LeadsTable";
 import { Sidebar } from "./components/Sidebar";
 import { IconBell, IconSearch } from "./components/icons";
-import { type DashboardLead, leads } from "./data/sample";
+import type { DashboardLead } from "./data/sample";
+import { useDashboardLeads } from "./data/useDashboardLeads";
 import { container, item } from "./motion";
 
 export default function App() {
   const reduce = useReducedMotion() ?? false;
   const [selected, setSelected] = useState<DashboardLead | null>(null);
   const [query, setQuery] = useState("");
+  const { leads, error } = useDashboardLeads();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -20,7 +22,7 @@ export default function App() {
     return leads.filter((l) =>
       [l.lead.business, l.lead.contact, l.lead.industry].some((v) => v?.toLowerCase().includes(q)),
     );
-  }, [query]);
+  }, [query, leads]);
 
   return (
     <LazyMotion features={domAnimation} strict>
@@ -36,7 +38,10 @@ export default function App() {
           >
             <m.div variants={item(reduce)}>
               <h1 className="topbar-title">Overview</h1>
-              <p className="topbar-crumb">Phillip analytics · every lead, end to end</p>
+              <p className="topbar-crumb">
+                Phillip analytics · every lead, end to end
+                {error ? " · showing sample data, live server unreachable" : ""}
+              </p>
             </m.div>
             <m.div className="topbar-right" variants={item(reduce)}>
               <label className="search">

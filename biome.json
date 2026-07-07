@@ -10,7 +10,14 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "ignore": ["**/dist", "**/coverage", "**/playground/public", "**/node_modules", "**/.vite"]
+    "ignore": [
+      "**/dist",
+      "**/coverage",
+      "**/playground/public",
+      "**/node_modules",
+      "**/.vite",
+      "apps/server/src/generated"
+    ]
   },
   "formatter": {
     "enabled": true,

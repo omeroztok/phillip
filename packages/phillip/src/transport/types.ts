@@ -18,6 +18,7 @@ export interface EventsBatchRequest {
 
 export interface CreateIterationRequest {
   previewId: string;
+  sessionId: string;
   changeSet: ChangeSet;
   round: number;
 }

@@ -22,6 +22,7 @@ export function createJob(
   previewId: string,
   changeRequest: string,
   attachmentUrls?: string[],
+  onSettled?: (result: { status: "done" | "failed"; version?: number }) => void,
 ): IterationJob {
   const id = prefixedId("itr");
   const job: IterationJob = { id, status: "queued" };
@@ -34,11 +35,13 @@ export function createJob(
       current.status = "done";
       current.version = site.version;
       current.resultUrl = `https://nutz.site/marisol?v=${site.version}`;
+      onSettled?.({ status: "done", version: site.version });
     })
     .catch((err) => {
       console.error("revision failed:", err);
       const current = jobs.get(id);
       if (current) current.status = "failed";
+      onSettled?.({ status: "failed" });
     });
 
   return { ...job };

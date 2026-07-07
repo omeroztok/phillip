@@ -1,16 +1,21 @@
-import { m, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { useState } from "react";
 import type { DashboardLead } from "../data/sample";
 import { relativeTime } from "../lib/analytics";
 import { drawer, item, scrim } from "../motion";
 import { EventTimeline } from "./EventTimeline";
+import { HeatmapModal } from "./HeatmapModal";
+import { RequestedChanges } from "./RequestedChanges";
 import { ScoreRing } from "./ScoreRing";
 import { StageBadge } from "./StageBadge";
 import { Transcript } from "./Transcript";
+import { IconHeatmap } from "./icons";
 
 const AVATAR = "/phillip.jpg";
 
 export function LeadDetail({ lead, onClose }: { lead: DashboardLead; onClose: () => void }) {
   const reduce = useReducedMotion() ?? false;
+  const [showHeatmap, setShowHeatmap] = useState(false);
   const { device, geo } = lead.session;
 
   const context: Array<[string, string]> = [
@@ -49,6 +54,10 @@ export function LeadDetail({ lead, onClose }: { lead: DashboardLead; onClose: ()
           </div>
           <div className="drawer-title-right">
             <StageBadge stage={lead.lead.stage} />
+            <button type="button" className="heatmap-btn" onClick={() => setShowHeatmap(true)}>
+              <IconHeatmap size={15} />
+              Heatmap
+            </button>
             <button type="button" className="drawer-close" onClick={onClose} aria-label="close">
               ×
             </button>
@@ -89,10 +98,19 @@ export function LeadDetail({ lead, onClose }: { lead: DashboardLead; onClose: ()
         </m.section>
 
         <m.section className="drawer-section" variants={item(reduce)}>
+          <h3>Requested changes</h3>
+          <RequestedChanges changes={lead.requestedChanges} />
+        </m.section>
+
+        <m.section className="drawer-section" variants={item(reduce)}>
           <h3>Activity</h3>
           <EventTimeline events={lead.events} />
         </m.section>
       </m.aside>
+
+      <AnimatePresence>
+        {showHeatmap ? <HeatmapModal lead={lead} onClose={() => setShowHeatmap(false)} /> : null}
+      </AnimatePresence>
     </>
   );
 }

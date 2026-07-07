@@ -1,8 +1,18 @@
 import "dotenv/config";
 import Anthropic from "@anthropic-ai/sdk";
-import type { ChangeSet } from "@nutz/phillip";
 import cors from "cors";
 import express from "express";
+import type {
+  CreateIterationRequest,
+  EventsBatchRequest,
+} from "../../../packages/phillip/src/transport/types";
+import {
+  ensureLeadAndSession,
+  getDashboardLeads,
+  recordEvents,
+  recordRequestedChange,
+  resolveRequestedChange,
+} from "./analytics";
 import { getAsset, storeAsset } from "./assets";
 import { DEMO_CONTEXT, demoBootConfig } from "./fixtures";
 import { prefixedId } from "./id";
@@ -10,6 +20,17 @@ import { advanceJob, createJob } from "./jobs";
 import { streamPhillipReply } from "./reply";
 import { getSite } from "./site";
 import { resolveQuickReply } from "./store";
+
+// Analytics must never break the actual product — every call to the
+// analytics module from a request handler goes through this, so a DB hiccup
+// just logs instead of 500ing an endpoint that has nothing to do with it.
+async function trackSafely(fn: () => Promise<unknown>): Promise<void> {
+  try {
+    await fn();
+  } catch (err) {
+    console.error("analytics failed (non-fatal):", err);
+  }
+}
 
 const PORT = Number(process.env.PORT ?? 8787);
 const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5-20251001";
@@ -30,11 +51,20 @@ app.use(cors());
 app.use(express.json({ limit: "8mb" }));
 
 app.get("/v1/preview/:id/boot", (req, res) => {
-  res.json(demoBootConfig(req.params.id));
+  const boot = demoBootConfig(req.params.id);
+  res.json(boot);
+  void trackSafely(() =>
+    ensureLeadAndSession(boot, {
+      referrer: req.get("referer"),
+      userAgent: req.get("user-agent"),
+    }),
+  );
 });
 
-app.post("/v1/events", (_req, res) => {
+app.post("/v1/events", (req, res) => {
   res.status(204).end();
+  const { sessionId, events } = req.body as EventsBatchRequest;
+  void trackSafely(() => recordEvents(sessionId, events));
 });
 
 app.post("/v1/conversations/:sessionId/messages", async (req, res) => {
@@ -54,7 +84,7 @@ app.post("/v1/conversations/:sessionId/messages", async (req, res) => {
 });
 
 app.post("/v1/iterations", (req, res) => {
-  const { previewId, changeSet } = req.body as { previewId: string; changeSet: ChangeSet };
+  const { previewId, sessionId, changeSet } = req.body as CreateIterationRequest;
   const changeRequest = changeSet?.freeText?.trim() ?? "";
   const attachments = changeSet?.attachments ?? [];
   if (!changeRequest && attachments.length === 0) {
@@ -65,7 +95,18 @@ app.post("/v1/iterations", (req, res) => {
     const assetId = storeAsset(a.dataUrl);
     return `${req.protocol}://${req.get("host")}/v1/preview/${encodeURIComponent(previewId)}/assets/${assetId}`;
   });
-  res.json(createJob(anthropic, MODEL, previewId, changeRequest, attachmentUrls));
+
+  let changeId: string | undefined;
+  void trackSafely(async () => {
+    changeId = await recordRequestedChange(sessionId, changeRequest || "(attachment only)");
+  });
+
+  const job = createJob(anthropic, MODEL, previewId, changeRequest, attachmentUrls, (result) => {
+    if (!changeId) return; // analytics tracking hadn't finished (or failed) before the job settled
+    const status = result.status === "done" ? "applied" : "failed";
+    void trackSafely(() => resolveRequestedChange(changeId as string, status, result.version));
+  });
+  res.json(job);
 });
 
 app.get("/v1/iterations/:id", (req, res) => {
@@ -90,6 +131,15 @@ app.get("/v1/preview/:id/assets/:assetId", (req, res) => {
   res.setHeader("Content-Type", asset.mediaType);
   res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
   res.send(asset.bytes);
+});
+
+app.get("/v1/dashboard/leads", async (_req, res) => {
+  try {
+    res.json(await getDashboardLeads());
+  } catch (err) {
+    console.error("dashboard query failed:", err);
+    res.status(500).json({ error: "failed to load dashboard leads" });
+  }
 });
 
 app.post("/v1/escalations", (_req, res) => {

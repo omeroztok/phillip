@@ -6,6 +6,7 @@ import { log } from "../lib/log";
 import type { TransportClient } from "../transport";
 import type { EngagementConfig } from "../types/boot";
 import type { AnalyticsEvent, EventPayload, EventType, PingReason } from "../types/events";
+import { HeatmapCollector } from "./heatmap";
 import { ActivityMonitor } from "./idle";
 import { SectionTracker } from "./sections";
 import { SignalTracker } from "./signals";
@@ -34,6 +35,7 @@ export class Tracker {
   private readonly activity = new ActivityMonitor();
   private readonly sections = new SectionTracker();
   private readonly signals = new SignalTracker();
+  private readonly heatmap = new HeatmapCollector();
 
   private startedAt = Date.now();
   private activeTimeSec = 0;
@@ -57,6 +59,7 @@ export class Tracker {
     this.activity.start();
     this.signals.start((type, payload) => this.track(type, payload));
     this.sections.start((name) => this.track("section_view", { section: name, visibleMs: 0 }));
+    this.heatmap.start();
 
     if (this.config.exitIntentEnabled) {
       this.cleanups.push(
@@ -100,7 +103,10 @@ export class Tracker {
   }
 
   private tick(): void {
-    if (this.activity.isActive()) this.activeTimeSec += TICK_MS / 1000;
+    if (this.activity.isActive()) {
+      this.activeTimeSec += TICK_MS / 1000;
+      this.heatmap.tick(TICK_MS);
+    }
     if (this.pinged && this.config.pingOncePerSession) return;
 
     const score = this.score();
@@ -135,6 +141,8 @@ export class Tracker {
   }
 
   private async flush(): Promise<void> {
+    const heatmap = this.heatmap.flush();
+    if (heatmap) this.track("heatmap_sample", heatmap);
     if (this.queue.length === 0) return;
     const events = this.queue;
     this.queue = [];
@@ -152,6 +160,7 @@ export class Tracker {
     this.activity.stop();
     this.sections.stop();
     this.signals.stop();
+    this.heatmap.stop();
     for (const c of this.cleanups) c();
     this.cleanups = [];
     void this.flush();

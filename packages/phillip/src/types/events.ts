@@ -1,5 +1,17 @@
-import type { Intent, Sentiment } from "../intent/types";
+import type { Intent, MessageRole, Sentiment } from "../intent/types";
 import type { LeadStage } from "./records";
+
+/** A batch of bucketed hover/click/scroll-dwell deltas since the last flush. */
+export interface HeatmapPayload {
+  grid: { cols: number; rows: number };
+  viewport: { width: number; height: number };
+  pageHeight: number;
+  /** [cellKey, count] deltas. cellKey = col * grid.rows + row. */
+  hover: Array<[number, number]>;
+  click: Array<[number, number]>;
+  /** [row, ms] active-dwell deltas. */
+  scrollMs: Array<[number, number]>;
+}
 
 // Why Phillip pinged — logged on every ping for offline tuning.
 export type PingReason = "score" | "exit_intent" | "fallback";
@@ -24,6 +36,8 @@ export type EventType =
   | "message_sent"
   | "message_received"
   | "intent_classified"
+  | "transcript"
+  | "heatmap_sample"
   // iteration
   | "iteration_requested"
   | "iteration_ready"
@@ -43,6 +57,9 @@ export interface EventPayloadMap {
   conversation_opened: { trigger: PingReason | "manual" };
   message_sent: { messageId: string; viaQuickReply: boolean };
   message_received: { messageId: string };
+  /** Every transcript bubble, verbatim — the dashboard's conversation record. */
+  transcript: { role: MessageRole; text: string };
+  heatmap_sample: HeatmapPayload;
   intent_classified: { intent: Intent; sentiment?: Sentiment };
   iteration_requested: { iterationId: string; round: number };
   iteration_ready: { iterationId: string; version?: number };

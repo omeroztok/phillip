@@ -134,6 +134,16 @@ export function IconGauge({ size = 18, ...rest }: IconProps) {
   );
 }
 
+export function IconHeatmap({ size = 18, ...rest }: IconProps) {
+  return (
+    <svg aria-hidden="true" {...base(size)} {...rest}>
+      <circle cx="10" cy="10" r="7.25" />
+      <circle cx="10" cy="10" r="4.25" strokeWidth={1.4} />
+      <circle cx="10" cy="10" r="1.25" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function IconChevronDown({ size = 14, ...rest }: IconProps) {
   return (
     <svg aria-hidden="true" {...base(size)} {...rest}>

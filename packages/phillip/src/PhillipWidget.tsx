@@ -146,6 +146,7 @@ function Ready({
   const iteration = useIteration({
     client,
     previewId: config.preview.id,
+    sessionId: config.session.id,
     tracker,
     onReady: (job) => {
       onSiteUpdated?.({ previewId: config.preview.id, version: job.version });
