@@ -113,6 +113,14 @@ export function getSite(previewId: string): SiteEntry {
   return { ...getOrSeed(previewId) };
 }
 
+/** Dev convenience: seed a preview with arbitrary HTML (e.g. a real business's
+ * actual site, fetched once and dropped in) instead of the hardcoded demo. */
+export function seedSite(previewId: string, html: string): SiteEntry {
+  const entry: SiteEntry = { html, version: 1 };
+  sites.set(previewId, entry);
+  return { ...entry };
+}
+
 // Strip a defensive markdown fence in case the model wraps its answer despite
 // being told not to. cheap insurance, not a real parser.
 function stripFence(text: string): string {

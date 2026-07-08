@@ -18,7 +18,7 @@ import { DEMO_CONTEXT, demoBootConfig } from "./fixtures";
 import { prefixedId } from "./id";
 import { advanceJob, createJob } from "./jobs";
 import { streamPhillipReply } from "./reply";
-import { getSite } from "./site";
+import { getSite, seedSite } from "./site";
 import { resolveQuickReply } from "./store";
 
 // Analytics must never break the actual product — every call to the
@@ -120,6 +120,18 @@ app.get("/v1/iterations/:id", (req, res) => {
 
 app.get("/v1/preview/:id/site", (req, res) => {
   res.json(getSite(req.params.id));
+});
+
+// Dev convenience: seed a preview with arbitrary HTML (e.g. a real business's
+// actual site, fetched once) instead of the hardcoded demo. Not part of the
+// product surface Phillip's widget talks to.
+app.post("/v1/preview/:id/seed", (req, res) => {
+  const html = (req.body as { html?: unknown }).html;
+  if (typeof html !== "string" || !html.trim()) {
+    res.status(400).json({ error: "expected { html: string }" });
+    return;
+  }
+  res.json(seedSite(req.params.id, html));
 });
 
 app.get("/v1/preview/:id/assets/:assetId", (req, res) => {

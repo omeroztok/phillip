@@ -11,7 +11,9 @@ import { LiveSite } from "./LiveSite";
 // the page).
 const live = import.meta.env.VITE_PHILLIP_BACKEND === "live";
 const apiBase = live ? (import.meta.env.VITE_PHILLIP_API_BASE ?? "http://localhost:8787") : "";
-const PREVIEW_ID = "prv_demo";
+// ?preview=<id> lets the live playground point at any seeded preview (see
+// apps/server's POST /v1/preview/:id/seed) without a rebuild.
+const PREVIEW_ID = new URLSearchParams(window.location.search).get("preview") ?? "prv_demo";
 
 function Root() {
   // Bumped by Phillip's onSiteUpdated callback once a revision lands, so both
