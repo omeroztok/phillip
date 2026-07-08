@@ -1,0 +1,5 @@
+{
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter @nutz/phillip build && pnpm --filter @nutz/dashboard build",
+  "outputDirectory": "dist"
+}

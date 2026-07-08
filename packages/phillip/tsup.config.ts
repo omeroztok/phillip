@@ -8,7 +8,14 @@ export default defineConfig([
   {
     entry: { index: "src/index.ts" },
     format: ["esm", "cjs"],
-    dts: true,
+    // Declarations are generated separately via `tsc --emitDeclarationOnly`
+    // (see the "build" script) instead of tsup's built-in dts:true. That
+    // option runs rollup-plugin-dts under the hood, which reproducibly blew
+    // past 60GB of RAM on Vercel's Linux build machines for this package
+    // (while building fine locally on macOS in ~1.5s) — a known class of
+    // platform-specific memory blowup in rollup-plugin-dts. Plain tsc has no
+    // such issue and produces an equally valid dist/index.d.ts.
+    dts: false,
     treeshake: true,
     sourcemap: true,
     clean: true,
